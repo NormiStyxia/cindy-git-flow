@@ -1,0 +1,13 @@
+# Local browser fixtures, screenshots and test output
+.dev/
+
+# Generated plugin packages and dependencies
+*.cindy
+node_modules/
+
+# Local credentials and machine files
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log

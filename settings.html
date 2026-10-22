@@ -1,0 +1,4 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><link rel="stylesheet" href="settings.css"></head><body>
+<p class="intro">本地仓库无需账号。接入团队服务后，再到面板「协作」页开启具体仓库的共享。</p>
+<form id="settings"><label>显示昵称<input id="name" maxlength="60" placeholder="留空使用 Git 配置中的姓名"></label><label>团队服务地址<input id="url" type="url" placeholder="https://git-flow.example.com"></label><label>团队访问令牌<input id="token" type="password" autocomplete="new-password" placeholder="留空保留已有令牌"></label><p id="token-status" class="hint"></p><div><button type="submit">保存设置</button><button type="button" id="clear">清除令牌</button></div><p id="message" role="status"></p></form>
+<p class="hint">令牌由 Cindy 安全保管。服务收到的状态仅含昵称、分支、提交摘要和改动数量，不上传代码、文件路径或 Git 凭证。关闭共享后停止上报，旧状态最多保留 24 小时。</p><script src="bridge.js"></script><script src="settings.js"></script></body></html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="panel.css"><title>Git 流线</title></head>
+<body>
+<svg class="sprite" aria-hidden="true">
+  <symbol id="i-plus" viewBox="0 0 20 20"><path d="M10 4.5v11M4.5 10h11"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 20 20"><path d="M15.5 8.5A5.8 5.8 0 0 0 5 6.6M4.5 11.5A5.8 5.8 0 0 0 15 13.4"/><path d="M4.6 3.6v3.3h3.3M15.4 16.4v-3.3h-3.3"/></symbol>
+  <symbol id="i-search" viewBox="0 0 20 20"><circle cx="8.8" cy="8.8" r="5"/><path d="m12.6 12.6 3.6 3.6"/></symbol>
+  <symbol id="i-flow" viewBox="0 0 20 20"><path d="M3 7c2.3-2.3 4.7-2.3 7 0s4.7 2.3 7 0M3 13c2.3-2.3 4.7-2.3 7 0s4.7 2.3 7 0"/></symbol>
+  <symbol id="i-close" viewBox="0 0 20 20"><path d="m5.5 5.5 9 9m0-9-9 9"/></symbol>
+  <symbol id="i-back" viewBox="0 0 20 20"><path d="M11.5 5 6.5 10l5 5"/></symbol>
+  <symbol id="i-branch" viewBox="0 0 20 20"><circle cx="6" cy="4.8" r="1.8"/><circle cx="6" cy="15.2" r="1.8"/><circle cx="14" cy="6.8" r="1.8"/><path d="M6 6.6v6.8M14 8.6c0 3-3.2 3.4-6.6 5"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 20 20"><path d="M6.2 15h7.6a3.3 3.3 0 0 0 .4-6.6 4.6 4.6 0 0 0-8.8 1A2.8 2.8 0 0 0 6.2 15Z"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 20 20"><path d="m5.5 7.5 4.5 4.5 4.5-4.5"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 20 20"><path d="M4 5h2m4 0h6M4 10h7m4 0h1M4 15h1m4 0h7"/><circle cx="8" cy="5" r="2"/><circle cx="13" cy="10" r="2"/><circle cx="7" cy="15" r="2"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 20 20"><rect x="4.5" y="8.5" width="11" height="8" rx="2"/><path d="M6.5 8.5V6a3.5 3.5 0 0 1 7 0v2.5M10 12v1.5"/></symbol>
+  <symbol id="i-unlock" viewBox="0 0 20 20"><rect x="4.5" y="8.5" width="11" height="8" rx="2"/><path d="M6.5 8.5V6a3.5 3.5 0 0 1 6.7-1.4M10 12v1.5"/></symbol>
+</svg>
+<main id="app">
+  <div id="controls" class="controls"><div class="controls-inner">
+    <header class="repo-bar">
+      <button id="follow-session" class="icon-button" title="自动跟随对话的项目" aria-label="自动跟随对话的项目" aria-pressed="true"><svg><use href="#i-branch"/></svg></button>
+      <button id="repo-select" class="choice-trigger repo-choice" aria-label="切换仓库" aria-haspopup="listbox" aria-expanded="false">选择仓库</button>
+      <button id="pick" class="icon-button" title="打开其他仓库" aria-label="打开其他仓库"><svg><use href="#i-plus"/></svg></button>
+      <button id="repository-lock" class="icon-button" disabled title="选择仓库后可以锁定" aria-label="锁定当前仓库" aria-pressed="false"><svg><use href="#i-unlock"/></svg></button>
+      <button id="refresh" class="icon-button" disabled title="刷新本地记录" aria-label="刷新本地记录"><svg><use href="#i-refresh"/></svg></button>
+      <button id="preferences-toggle" class="icon-button" disabled title="远端与显示" aria-label="远端与显示" aria-haspopup="dialog" aria-expanded="false" aria-controls="preferences"><svg><use href="#i-settings"/></svg><i class="sync-dot" hidden></i></button>
+    </header>
+    <div id="overview" class="overview" hidden>
+      <button id="current-branch" class="current-branch" title="在流线上定位当前分支"></button>
+      <div class="pills"><button id="dirty" class="pill" title="查看未提交文件"></button><span id="ahead" class="pill"></span><span id="behind" class="pill"></span></div>
+    </div>
+    <div id="viewbar" class="viewbar" hidden>
+      <nav class="tabs" aria-label="仓库视图"><button data-tab="timeline" class="active" aria-selected="true" title="查看提交与分支关系">流线</button><button data-tab="branches" aria-selected="false" title="查看、定位或比较分支">分支<span id="branch-count" class="count"></span></button><button data-tab="team" aria-selected="false" title="查看本机工作区与队友状态">协作<span id="team-count" class="count"></span></button></nav>
+      <button id="timeline-scope" class="choice-trigger scope-choice" aria-label="流线显示范围" aria-haspopup="listbox" aria-expanded="false" title="选择显示全仓库或当前分支的提交">全仓库</button>
+      <button id="search-toggle" class="icon-button" title="搜索提交" aria-label="搜索提交" aria-expanded="false" aria-controls="searchbar"><svg><use href="#i-search"/></svg></button>
+    </div>
+    <div id="searchbar" class="graph-toolbar" hidden><label class="search"><svg aria-hidden="true"><use href="#i-search"/></svg><input id="search" placeholder="搜提交、作者或分支" aria-label="搜提交、作者或分支"></label><button id="close-search" class="icon-button" title="关闭搜索并清除高亮" aria-label="关闭搜索并清除高亮"><svg><use href="#i-close"/></svg></button></div>
+  </div></div>
+  <button id="pull-handle" class="pull-handle" hidden aria-controls="controls" aria-expanded="true" title="点击或向上拖动，收起工具栏"><span class="grip"></span><span class="pull-label">收起工具栏</span><svg aria-hidden="true"><use href="#i-chevron"/></svg><i class="attention-dot" hidden></i></button>
+  <div id="error" class="notice error" role="alert" hidden></div>
+  <section id="welcome" class="welcome">
+    <svg class="welcome-art" viewBox="0 0 120 92" aria-hidden="true"><path class="w-line c0" d="M30 10V82"/><path class="w-line c1" d="M30 24L58 44V64L30 78"/><path class="w-line c2" d="M58 44L88 58"/><circle class="w-dot c0" cx="30" cy="10" r="6"/><circle class="w-dot c1" cx="58" cy="44" r="6"/><circle class="w-dot c2" cx="88" cy="58" r="6"/><circle class="w-dot c0" cx="30" cy="82" r="6"/></svg>
+    <h2 id="welcome-title">把分支关系看清楚</h2>
+    <p id="welcome-message">切换到项目对话，自动显示它的仓库。<br>也可以手动选择本机仓库。</p>
+    <button id="welcome-pick" class="primary">选择仓库文件夹</button>
+    <p class="hint">读取真实版本记录 · 支持多个工作区</p>
+  </section>
+  <section id="workspace" hidden>
+      <div id="translation-row" class="translation-row" hidden><span id="translation-status" role="status"></span><button id="retry-translation" class="text-button" hidden>重试中文翻译</button></div>
+    <div id="timeline" class="view">
+      <div id="graph-scroll" class="scroll"><div id="graph"></div><div id="graph-foot" class="foot"></div></div>
+      <div id="sheet" class="sheet" hidden></div>
+    </div>
+    <div id="branches" class="view scroll" hidden></div>
+    <div id="team" class="view scroll" hidden></div>
+  </section>
+  <section id="preferences" class="preferences scroll" role="dialog" aria-labelledby="preferences-title" hidden>
+    <div class="preferences-head"><b id="preferences-title">远端与显示</b><button id="close-preferences" class="icon-button" title="关闭设置" aria-label="关闭设置"><svg><use href="#i-close"/></svg></button></div>
+    <div class="preference-row"><span>远端仓库</span><button id="remote-select" class="choice-trigger" aria-label="选择远端仓库" aria-haspopup="listbox" aria-expanded="false"></button></div>
+    <div id="auto-fetch-row" class="preference-row"><span>自动更新</span><button id="auto-fetch" class="choice-trigger" aria-label="自动更新间隔" aria-haspopup="listbox" aria-expanded="false"></button></div>
+    <div class="remote-action"><button id="fetch" class="text-button" title="从服务器获取分支和提交记录，不合并代码">立即更新</button><span id="fetch-status" role="status"></span></div>
+    <p id="fetch-reason" class="preference-note" hidden></p>
+    <p id="fetched" class="preference-note"></p>
+    <p class="preference-note">获取远端分支和提交记录，不会自动合并代码。</p>
+    <div class="preference-section"><p id="tracking" class="preference-note"></p><p id="sampled" class="preference-note"></p></div>
+    <div class="preference-row preference-section"><span>路径流光</span><button id="motion" class="switch" aria-label="路径流光" aria-pressed="true"><span></span></button></div>
+    <button id="reading-guide" class="text-button guide-link">读图说明与操作帮助</button>
+  </section>
+  <div id="choice-menu" class="choice-menu scroll" role="listbox" hidden></div>
+  <aside id="detail" hidden aria-label="详情"><div class="detail-head"><button id="close-detail" class="icon-button" title="返回" aria-label="返回"><svg><use href="#i-back"/></svg></button><span id="detail-title"></span></div><div id="detail-body" class="scroll"></div></aside>
+</main><script src="bridge.js"></script><script src="graph.js"></script><script src="labels.js"></script><script src="fetch-schedule.js"></script><script src="panel-controls.js"></script><script src="panel.js"></script>
+</body></html>

@@ -1,0 +1,189 @@
+{
+  "schemaVersion": 3,
+  "minCindyVersion": "0.1.103",
+  "id": "git-flow",
+  "name": "Git 流线",
+  "description": "在对话左侧查看本地仓库、流动分支图、最新提交和队友状态",
+  "whenToUse": "在对话左侧查看本地仓库、流动分支图、最新提交和队友状态",
+  "version": "1.6.0",
+  "entry": "main.js",
+  "icon": "assets/icon.png",
+  "tools": [
+    {
+      "name": "git_open",
+      "description": "连接本机 Git 仓库并让左侧 Git 流线面板显示它，返回真实分支、提交图和工作区状态。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dir": {
+            "type": "string",
+            "description": "本机仓库绝对路径；省略时使用当前本地会话工作目录。"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "git_status",
+      "description": "只读查看本机 Git 仓库状态、最近 180 条提交、本地和缓存远端分支、同机 worktree；缓存远端不代表实时在线。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dir": {
+            "type": "string",
+            "description": "本机仓库绝对路径；省略时使用当前本地会话工作目录。"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "git_commit",
+      "description": "查看指定提交详情和补丁。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dir": {
+            "type": "string",
+            "description": "本机仓库绝对路径；省略时使用当前本地会话工作目录。"
+          },
+          "ref": {
+            "type": "string",
+            "description": "提交 hash 或分支引用。"
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "git_compare",
+      "description": "预览当前 HEAD 与目标分支的提交差距、快进关系和文件差异；不切分支，不合并，不预测冲突。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dir": {
+            "type": "string",
+            "description": "本机仓库绝对路径；省略时使用当前本地会话工作目录。"
+          },
+          "target": {
+            "type": "string",
+            "description": "目标分支、远端引用或提交 hash。"
+          }
+        },
+        "required": [
+          "target"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "git_fetch",
+      "description": "从指定已有远端 fetch 最新引用；不合并、不改工作文件、不 prune。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dir": {
+            "type": "string",
+            "description": "本机仓库绝对路径；省略时使用当前本地会话工作目录。"
+          },
+          "remote": {
+            "type": "string",
+            "description": "已有远端名，例如 origin。"
+          }
+        },
+        "required": [
+          "remote"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "git_team",
+      "description": "同步当前仓库的队友状态；需要用户在设置中连接团队服务，并为该仓库开启共享。仅上报昵称、分支、提交摘要和改动数量。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dir": {
+            "type": "string",
+            "description": "本机仓库绝对路径；省略时使用当前本地会话工作目录。"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "git_translate",
+      "description": "将提交标题完整翻译为简体中文并缓存；只处理提供的标题，不读代码，不修改 Git 记录。使用 Cindy 轻量任务模型。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "subjects": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 1500
+            },
+            "minItems": 1,
+            "maxItems": 20,
+            "description": "原始提交标题，总计最多 16000 字。"
+          },
+          "retry": {
+            "type": "boolean",
+            "description": "上次翻译失败、已处理原因后明确重试。"
+          }
+        },
+        "required": [
+          "subjects"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "node": {
+    "entry": "node/worker.cjs",
+    "protocol": "json-rpc-stdio",
+    "lifecycle": "on-demand",
+    "idleTimeoutSeconds": 120,
+    "secretBindings": [
+      {
+        "key": "team_token",
+        "label": "团队访问令牌",
+        "methods": [
+          "team/sync"
+        ],
+        "hint": "由团队 Git 流线服务管理员提供；仅用于队友状态同步。"
+      }
+    ]
+  },
+  "command": "git-flow",
+  "panel": {
+    "title": "Git 流线",
+    "html": "panel.html",
+    "position": "left",
+    "minWidth": 320,
+    "defaultFraction": 0.3
+  },
+  "pick": true,
+  "sessionContext": true,
+  "settingsHtml": "settings.html",
+  "setup": {
+    "requires": []
+  },
+  "cindy": {
+    "text": [
+      "oneshot"
+    ]
+  },
+  "subscribe": {
+    "topics": [
+      "session"
+    ]
+  },
+  "launch": "resident"
+}

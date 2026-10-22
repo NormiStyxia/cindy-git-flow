@@ -1,0 +1,21 @@
+:root {
+  --fg: var(--text-primary, light-dark(#262626, #d9d9d6));
+  --fg-2: var(--fg);
+  --line: light-dark(#e2e2dd, #383835);
+  --field: light-dark(#ffffff, #262624);
+  --accent: light-dark(#1f8466, #5fcba7);
+  --accent-fg: light-dark(#ffffff, #10231c);
+}
+* { box-sizing: border-box; }
+html { background: transparent; }
+body { margin: 0; padding: 14px; background: transparent; font: 14px/1.6 Inter, system-ui, -apple-system, "PingFang SC", sans-serif; color: var(--fg); }
+label { display: block; margin: 12px 0; font-weight: 550; }
+input { display: block; width: 100%; margin-top: 6px; padding: 9px 11px; border: 1px solid var(--line); background: var(--field); color: inherit; border-radius: 9px; font: inherit; font-weight: 400; }
+input:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+input::placeholder { color: var(--fg-2); opacity: 1; }
+button { padding: 8px 14px; border: 1px solid var(--line); border-radius: 9px; color: inherit; background: var(--field); cursor: pointer; font: inherit; font-weight: 550; margin-right: 6px; }
+button[type=submit] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+button:disabled { opacity: .5; }
+.hint, .intro { color: var(--fg-2); font-size: 13px; }
+.intro { margin-top: 0; }
+#message { min-height: 1.6em; font-size: 13px; }
