@@ -5,7 +5,7 @@
   "name": "Git 流线",
   "description": "在对话左侧查看本地仓库、流动分支图、最新提交和队友状态",
   "whenToUse": "在对话左侧查看本地仓库、流动分支图、最新提交和队友状态",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "entry": "main.js",
   "icon": "assets/icon.png",
   "tools": [
@@ -118,6 +118,16 @@
       }
     },
     {
+      "name": "git_usage",
+      "description": "读取 Git 流线后台记录的模型用量：插件翻译调用次数、字符数和估算 token，以及宿主提供的对话轮次真实 token；不显示在面板中。",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "git_translate",
       "description": "将提交标题完整翻译为简体中文并缓存；只处理提供的标题，不读代码，不修改 Git 记录。使用 Cindy 轻量任务模型。",
       "parameters": {
@@ -182,7 +192,8 @@
   },
   "subscribe": {
     "topics": [
-      "session"
+      "session",
+      "turn"
     ]
   },
   "launch": "resident"

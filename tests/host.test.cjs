@@ -196,3 +196,28 @@ test('无效锁定及读取失败不改变已存锁定状态',async()=>{
  storage.request('cannot-unlock','ui/repository-lock',{locked:false});assert((await storage.result('cannot-unlock')).error);
  assert.equal(storage.config.repositoryLock.dir,'/saved');
 });
+
+test('后台记录插件翻译用量，缓存命中不重复计数，并可由 git_usage 查询',async()=>{
+ const source='fix(camera): estimate model usage';
+ const model=()=>({ok:true,text:JSON.stringify([{id:0,text:'修复问题（镜头）：估算模型用量'}]),model:'quick-model',usage:{inputTokens:101,outputTokens:17}});
+ const h=host(false,model);
+ h.request('translate','text/translate',{subjects:[source]});assert((await h.result('translate')).result);
+ h.request('cached','text/translate',{subjects:[source]});assert((await h.result('cached')).result);
+ let usage=h.config.usage;
+ assert.equal(usage.plugin.calls,1);assert.equal(usage.plugin.translatedItems,1);assert.equal(usage.plugin.exactInputTokens,101);assert.equal(usage.plugin.exactOutputTokens,17);assert.equal(usage.plugin.models['quick-model'],1);assert(usage.plugin.estimatedInputTokens>0);assert(usage.plugin.estimatedOutputTokens>0);
+ await h.listener({type:'tool-call',tool:'git_usage',callId:'usage-tool',args:{}});
+ const result=h.messages.find(m=>m.type==='tool-result'&&m.callId==='usage-tool');assert(result?.ok);assert.equal(result.result.plugin.calls,1);assert(result.result.note.includes('估算'));
+});
+test('后台累计宿主对话轮次真实 token，事件丢失会标记不完整',async()=>{
+ const h=host();
+ await h.listener({type:'event',name:'did-turn-end',seq:1,data:{sessionId:'s1',model:'conversation-model',usage:{inputTokens:120,outputTokens:30,cacheReadTokens:40,cacheCreationTokens:5}}});
+ await new Promise(r=>setTimeout(r,20));
+ await h.listener({type:'event',name:'did-turn-end',seq:2,dropped:3,data:{sessionId:'s1',model:'conversation-model',usage:{inputTokens:80,outputTokens:20}}});
+ await new Promise(r=>setTimeout(r,30));
+ const usage=h.config.usage.conversation;
+ assert.equal(usage.turns,2);assert.equal(usage.inputTokens,200);assert.equal(usage.outputTokens,50);assert.equal(usage.cacheReadTokens,40);assert.equal(usage.cacheCreationTokens,5);assert.equal(usage.droppedEvents,3);assert.equal(usage.complete,false);assert.equal(usage.models['conversation-model'],2);
+});
+test('用量事件只写后台配置，不向面板广播仓库或翻译更新',async()=>{
+ const h=host();await h.listener({type:'event',name:'did-turn-end',data:{model:'m',usage:{inputTokens:1,outputTokens:2}}});await new Promise(r=>setTimeout(r,20));
+ assert(h.messages.some(m=>m.type==='usage-changed'));assert(!h.messages.some(m=>m.type==='repo-connected'||m.type==='translations-changed'));
+});

@@ -44,6 +44,46 @@ function validTranslation(text) {
 function translationCache(value) {
   return Object.fromEntries(Object.entries(value && typeof value === 'object' && !Array.isArray(value) ? value : {}).filter(([source, text]) => source.length <= 1500 && validTranslation(text)).slice(-400));
 }
+function finiteCount(value) { return Number.isFinite(value) && value >= 0 ? Math.round(value) : 0; }
+function estimatedTokens(text) { const chars = [...String(text || '')].length; return chars ? Math.max(1, Math.ceil(chars / 4)) : 0; }
+function emptyUsage() {
+  return { plugin: { calls: 0, translatedItems: 0, inputChars: 0, outputChars: 0, estimatedInputTokens: 0, estimatedOutputTokens: 0, exactInputTokens: 0, exactOutputTokens: 0, models: {}, lastModel: '', lastAt: '' }, conversation: { turns: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, droppedEvents: 0, complete: true, models: {}, lastModel: '', lastAt: '' } };
+}
+function normalizeUsage(value) {
+  const base = emptyUsage(), usage = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  for (const kind of ['plugin', 'conversation']) {
+    const source = usage[kind] && typeof usage[kind] === 'object' ? usage[kind] : {};
+    for (const key of Object.keys(base[kind])) {
+      if (typeof base[kind][key] === 'number') base[kind][key] = finiteCount(source[key]);
+      else if (typeof base[kind][key] === 'boolean') base[kind][key] = source[key] !== false;
+      else if (typeof base[kind][key] === 'string') base[kind][key] = typeof source[key] === 'string' ? source[key].slice(0, 120) : '';
+      else if (key === 'models') base[kind][key] = source[key] && typeof source[key] === 'object' && !Array.isArray(source[key]) ? Object.fromEntries(Object.entries(source[key]).filter(([model, count]) => typeof model === 'string' && model.length <= 120 && Number.isFinite(count)).slice(-20)) : {};
+    }
+  }
+  return base;
+}
+function addModel(models, model) {
+  if (!model) return models;
+  const next = { ...models }, key = String(model).slice(0, 120); next[key] = finiteCount(next[key]) + 1;
+  return Object.fromEntries(Object.entries(next).slice(-20));
+}
+function mergePluginUsage(usage, source, response) {
+  const next = normalizeUsage(usage), target = next.plugin, exact = response?.usage && typeof response.usage === 'object' ? response.usage : {};
+  target.calls += 1; target.translatedItems += source.items; target.inputChars += source.inputChars; target.outputChars += source.output.length;
+  target.estimatedInputTokens += estimatedTokens(source.prompt); target.estimatedOutputTokens += estimatedTokens(source.output);
+  target.exactInputTokens += finiteCount(exact.inputTokens); target.exactOutputTokens += finiteCount(exact.outputTokens);
+  target.lastModel = typeof response?.model === 'string' ? response.model.slice(0, 120) : target.lastModel; target.lastAt = new Date().toISOString(); target.models = addModel(target.models, response?.model);
+  return next;
+}
+function mergeConversationUsage(usage, data) {
+  const next = normalizeUsage(usage), target = next.conversation, source = data?.usage && typeof data.usage === 'object' ? data.usage : {};
+  const values = ['inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheCreationTokens'];
+  if (!values.some(key => Number.isFinite(source[key]))) return null;
+  target.turns += 1; for (const key of values) target[key] += finiteCount(source[key]);
+  target.lastModel = typeof data.model === 'string' ? data.model.slice(0, 120) : target.lastModel; target.lastAt = new Date().toISOString(); target.models = addModel(target.models, data.model);
+  return next;
+}
+function usageSnapshot(value) { return { ...normalizeUsage(value), note: '插件翻译 token 为按字符估算；宿主目前只在对话轮次事件中提供真实 token。插件自身的 oneshot_text 响应未提供真实 token。' }; }
 function translateSubjects(params, callId) {
   const { subjects, retry } = params;
   if (!Array.isArray(subjects) || !subjects.length || subjects.length > 20 || subjects.some(s => typeof s !== 'string' || !s.trim() || s.length > 1500) || subjects.join('').length > 16000) throw new Error('每次最多翻译 20 条提交说明，单条不超过 1500 字，总计不超过 16000 字。');
@@ -70,9 +110,10 @@ function translateSubjects(params, callId) {
           seen.add(item.id);
         }
         const added = Object.fromEntries(output.map(item => [missing[item.id], item.text.trim()]));
+        const prompt = '将以下 Git 提交标题完整翻译为准确、简洁的简体中文。输入数据：' + JSON.stringify(items);
         await updateConfig(latest => {
           const retained = Object.entries(translationCache(latest.translationCache)).filter(([source]) => !Object.hasOwn(added, source));
-          return { translationCache: Object.fromEntries([...retained, ...Object.entries(added)].slice(-400)) };
+          return { translationCache: Object.fromEntries([...retained, ...Object.entries(added)].slice(-400)), usage: mergePluginUsage(latest.usage, { items: missing.length, inputChars: prompt.length, prompt, output: response.text }, response) };
         }, 'translations-changed');
         for (const [source, text] of Object.entries(added)) Object.defineProperty(cached, source, { value: text, enumerable: true, configurable: true, writable: true });
       } catch (e) {
@@ -97,6 +138,7 @@ async function connect(dir, callId, sessionId) {
   return state;
 }
 async function action(method, params = {}, callId) {
+  if (method === 'usage/read') return usageSnapshot((await readConfig()).usage);
   if (method === 'session/current') return sessionFocus;
   if (method === 'session/connect') {
     const focus = sessionFocus;
@@ -167,6 +209,18 @@ channel.onmessage = ({ data: m }) => {
   });
 };
 cindy.onHostMessage(async msg => {
+  if (msg.type === 'event' && msg.name === 'did-turn-end') {
+    updateConfig(latest => {
+      const normalized = normalizeUsage(latest.usage);
+      if (msg.dropped) {
+        normalized.conversation.droppedEvents += finiteCount(msg.dropped);
+        normalized.conversation.complete = false;
+      }
+      const usage = mergeConversationUsage(normalized, msg.data);
+      return { usage: usage || normalized };
+    }, 'usage-changed').catch(() => {});
+    return;
+  }
   if (msg.type === 'event' && msg.dropped) {
     sessionFocus = null;
     channel.postMessage({ type: 'session-focus', focus: null, revision: ++focusRevision });
@@ -193,6 +247,11 @@ cindy.onHostMessage(async msg => {
     const p = msg.args || {}; const ctx = p.session_context;
     if (msg.tool === 'git_translate') {
       const result = await action('text/translate', p, msg.callId);
+      await cindy.send({ type: 'tool-result', callId: msg.callId, ok: true, result });
+      return;
+    }
+    if (msg.tool === 'git_usage') {
+      const result = await action('usage/read');
       await cindy.send({ type: 'tool-result', callId: msg.callId, ok: true, result });
       return;
     }
