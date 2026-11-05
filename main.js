@@ -2,6 +2,7 @@
 const channel = new BroadcastChannel('git-flow-v1');
 // Host focus metadata stays in memory; it is never inferred from the last saved repo.
 let sessionFocus = null, focusRevision = 0, sessionSequence = -1;
+const workdirKey = value => typeof value === 'string' ? value.replace(value.startsWith('/') ? /\/+$/ : /[\\/]+$/, '') || value : null;
 let configQueue = Promise.resolve();
 const configByteLimit = 60 * 1024; // /kv accepts at most 64KB, including all other settings.
 function configBody(next) {
@@ -144,7 +145,8 @@ async function action(method, params = {}, callId) {
     const focus = sessionFocus;
     if (!focus || focus.revision !== params.revision || !focus.workdir) throw new Error('对话已切换，请读取当前对话的项目。');
     const result = await node('repo/snapshot', { dir: focus.workdir });
-    if (sessionFocus !== focus) throw new Error('对话已切换，请读取当前对话的项目。');
+    // 同项目换对话时面板复用这次读取；只有项目真的换了才丢弃结果。
+    if (!sessionFocus?.workdir || workdirKey(sessionFocus.workdir) !== workdirKey(focus.workdir)) throw new Error('对话已切换，请读取当前对话的项目。');
     // Automatic follow must not overwrite manually saved repositories or broadcast a switch.
     return result;
   }
@@ -166,7 +168,8 @@ async function action(method, params = {}, callId) {
   }
   if (method === 'config/update') {
     const allowed = {};
-    for (const key of ['teamUrl', 'displayName', 'motion']) if (key in params) allowed[key] = params[key];
+    if ('foldAuto' in params && typeof params.foldAuto !== 'boolean') throw new Error('自动同步提交的显示设置无效，请重试。');
+    for (const key of ['teamUrl', 'displayName', 'motion', 'foldAuto']) if (key in params) allowed[key] = params[key];
     if ('autoFetchMinutes' in params) {
       if (![0, 1, 5, 10].includes(params.autoFetchMinutes)) throw new Error('请选择关闭、每 1 分钟、每 5 分钟或每 10 分钟自动获取。');
       allowed.autoFetchMinutes = params.autoFetchMinutes;

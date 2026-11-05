@@ -8,7 +8,19 @@ let translationBusy = false, translationError = '', activeCommitSubject = '';
 const subjectLabel = value => GitLabels.subject(value);
 const fetchSchedule = new GitFetchSchedule.FetchSchedule(), fetchErrors = new Map(), fetchProgress = new Map(), fetchSuccessAt = new Map();
 let autoFetchMinutes = 5, timelineScope = 'all';
-const visibleCommits = () => timelineScope === 'current' ? state?.currentCommits || [] : state?.commits || [];
+const noCommits = [];
+let displaySource = null, displayFold = null, display = null;
+// 折叠只影响显示：原始提交仍来自 state，换开关时重新构建，不重新读 Git。
+function displayModel() {
+  const source = timelineScope === 'current' ? state?.currentCommits || noCommits : state?.commits || noCommits;
+  const fold = config.foldAuto !== false;
+  if (source !== displaySource || fold !== displayFold) { displaySource = source; displayFold = fold; display = GitTimeline.build(source, { fold }); }
+  return display;
+}
+const visibleCommits = () => displayModel().items;
+// 折叠后，成员提交按它所在的那一行参与分支标签、当前提交和定位。
+const rowSha = sha => displayModel().shaOf(sha);
+const headSha = () => (state?.head ? rowSha(state.head) : null);
 function renderScope() {
   GitChoices.set($('#timeline-scope'), [{ value: 'all', label: '全仓库', detail: '所有分支的最近 180 条提交' }, { value: 'current', label: state?.detached ? '当前提交' : '当前分支', detail: '当前历史的最近 180 条提交，含已经合入的提交' }], timelineScope);
   $('#timeline-scope').hidden = tab !== 'timeline';
@@ -22,6 +34,9 @@ function setTimelineScope(value) {
 }
 let config = {}, state = null, dir = null, busy = false, generation = 0, tab = 'timeline', team = null, teamError = '', teamBusy = false, nextTeamAt = 0, teamFailures = 0, graphKey = '', teamEditing = false, teamGeneration = 0, connecting = false;
 let activeFocus = null, lastFocusRevision = -1, followingSession = true;
+// 工作目录可能是仓库的子目录；同时记住连接入口与 Git 返回的根目录。
+let repositoryWorkdir = null, connectingWorkdir = null;
+const workdirKey = value => typeof value === 'string' ? value.replace(value.startsWith('/') ? /\/+$/ : /[\\/]+$/, '') || value : null;
 let repositoryLocked = false, lockSaving = false, configReady = false, pendingFocus = null;
 let graph = null, selected = null, controlsCollapsed = false, collapseSaving = false;
 const short = sha => sha ? sha.slice(0, 7) : '尚无提交';
@@ -31,6 +46,24 @@ function age(value) {
   if (!Number.isFinite(seconds)) return '未知';
   return seconds < 60 ? '刚刚' : seconds < 3600 ? Math.floor(seconds / 60) + ' 分钟前' : seconds < 86400 ? Math.floor(seconds / 3600) + ' 小时前' : Math.floor(seconds / 86400) + ' 天前';
 }
+// 自动同步提交是机器文案：只显示时间，不送去翻译。
+function clock(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
+}
+function autoTitle(row) {
+  if (row.auto?.folded) return '自动同步 ×' + row.auto.count;
+  const time = clock(row.date);
+  return '自动同步' + (time ? ' · ' + time : '');
+}
+function autoRange(row) {
+  const newest = clock(row.auto?.newestDate || row.date), oldest = clock(row.auto?.oldestDate || row.date);
+  if (!newest || !oldest || newest === oldest) return newest || oldest || '';
+  const from = new Date(row.auto?.oldestDate || row.date), to = new Date(row.auto?.newestDate || row.date);
+  const day = value => String(value.getMonth() + 1).padStart(2, '0') + '-' + String(value.getDate()).padStart(2, '0');
+  return from.toDateString() === to.toDateString() ? oldest + '–' + newest : day(from) + ' ' + oldest + '–' + day(to) + ' ' + newest;
+}
+const refLabel = ref => GitTimeline.isAutoCommit(ref) ? autoTitle(ref) : subjectLabel(ref.subject);
 function error(message) { $('#error').textContent = message || ''; $('#error').hidden = !message; renderAttention(); }
 function renderAttention() {
   const issue = !$('#error').hidden || !!translationError || !$('#preferences-toggle .sync-dot').hidden;
@@ -83,6 +116,8 @@ function options() {
   document.body.classList.toggle('no-motion', config.motion === false);
   $('#motion').setAttribute('aria-pressed', String(config.motion !== false));
   $('#motion').title = config.motion === false ? '开启路径流光，方便追踪选中提交的历史' : '关闭路径流光';
+  $('#auto-sync').setAttribute('aria-pressed', String(config.foldAuto !== false));
+  $('#auto-sync').title = config.foldAuto === false ? '已关闭折叠 · 每条自动同步单独显示' : '已开启折叠 · 连续自动同步合成一行，点击可看快照';
   const nextMinutes = GitFetchSchedule.minutes(config.autoFetchMinutes);
   if (nextMinutes !== autoFetchMinutes) fetchSchedule.reconfigure(nextMinutes * 60000);
   autoFetchMinutes = nextMinutes;
@@ -91,7 +126,8 @@ function options() {
   renderFetchStatus();
 }
 function untranslatedSubjects() {
-  return [...new Set([...visibleCommits(), ...(state?.refs || []), ...(team?.members || []), { subject: activeCommitSubject }].map(c => c.subject).filter(s => s && s.length <= 1500 && GitLabels.needsTranslation(s)))];
+  // 构建快照的标题是机器文案，不值得花一次模型调用去翻译。
+  return [...new Set([...visibleCommits(), ...(state?.refs || []), ...(team?.members || []), { subject: activeCommitSubject }].filter(c => !GitTimeline.isAutoCommit(c)).map(c => c.subject).filter(s => s && s.length <= 1500 && GitLabels.needsTranslation(s)))];
 }
 function renderTranslationStatus() {
   const missing = untranslatedSubjects().length;
@@ -153,6 +189,7 @@ function renderFollow() {
 function clearRepository(title, message) {
   ++generation; ++teamGeneration; ++detailRevision;
   state = null; dir = null; busy = false; connecting = false; selected = null;
+  repositoryWorkdir = null; connectingWorkdir = null;
   team = null; teamError = ''; teamEditing = false; nextTeamAt = 0; teamFailures = 0;
   activeCommitSubject = ''; graphKey = ''; timelineScope = 'all';
   GitChoices.close(); showPreferences(false); $('#detail').hidden = true; $('#sheet').hidden = true;
@@ -169,6 +206,15 @@ async function followConversation(focus, revision = focus?.revision, force = fal
   lastFocusRevision = revision; activeFocus = focus;
   if (repositoryLocked) { followingSession = false; renderFollow(); return; }
   followingSession = true;
+  const nextWorkdir = workdirKey(focus?.workdir);
+  // 换的是对话，仓库没换：保留图、滚动位置、选中项、搜索和详情。
+  // 同项目的首次读取尚未完成时，也复用在途请求，不重新清屏或重复读 Git。
+  if (nextWorkdir && ((connecting && nextWorkdir === connectingWorkdir) ||
+      (state && !connecting && (nextWorkdir === workdirKey(dir) || nextWorkdir === repositoryWorkdir)))) {
+    renderFollow();
+    if (force && !connecting) await refresh();
+    return;
+  }
   clearRepository(focus?.workdir ? '正在读取对话项目' : '这个对话未关联本地项目', focus?.workdir ? '读取仓库后，流线会显示在这里。' : '可以手动选择仓库；切换到项目对话后会继续自动跟随。');
   if (focus?.workdir) await connect(focus.workdir, false, 'follow', focus);
 }
@@ -179,6 +225,7 @@ async function connect(nextDir, pick = false, mode = 'manual', focus = activeFoc
   GitChoices.close(); showPreferences(false); renderFollow();
   if (!pick) clearRepository('正在读取仓库', '读取完成后，流线会显示在这里。');
   const revision = ++generation; ++teamGeneration; ++detailRevision;
+  connectingWorkdir = workdirKey(nextDir);
   activeCommitSubject = ''; $('#detail').hidden = true; connecting = true; busy = true; error(''); $('#refresh').disabled = true;
   try {
     const data = await rpc(mode === 'follow' ? 'session/connect' : pick ? 'repo/pick' : 'repo/connect', mode === 'follow' ? { revision: focus.revision } : pick ? {} : { dir: nextDir });
@@ -187,6 +234,7 @@ async function connect(nextDir, pick = false, mode = 'manual', focus = activeFoc
     const latest = await rpc('config/read');
     if (revision !== generation) return;
     dir = data.dir; state = data; config = latest; repositoryLocked = !!config.repositoryLock?.dir; if (repositoryLocked) followingSession = false; timelineScope = 'all'; selected = null;
+    repositoryWorkdir = workdirKey(pick ? data.dir : nextDir);
     teamEditing = false; team = null; teamError = ''; nextTeamAt = 0; graphKey = '';
     options(); render(); syncTeam();
   } catch (e) {
@@ -199,6 +247,7 @@ async function connect(nextDir, pick = false, mode = 'manual', focus = activeFoc
   finally {
     if (revision === generation) {
       busy = false; connecting = false; $('#refresh').disabled = !state; $('#fetch').disabled = !state?.remotes.length; $('#remote-select').disabled = !state?.remotes.length;
+      connectingWorkdir = null;
       renderFollow(); syncTeam(); maybeFetch();
     }
   }
@@ -305,7 +354,13 @@ function render() {
   if (state.unstable) error('仓库正在被其他操作更新，当前快照可能变化，请稍后刷新。');
   $('#branch-count').textContent = state.refs.length;
   const key = JSON.stringify([state.dir, state.head, state.refs, timelineScope, visibleCommits()]);
-  if (key !== graphKey) { graphKey = key; if (selected && !visibleCommits().some(c => c.sha === selected)) selected = null; renderGraph(); }
+  if (key !== graphKey) {
+    graphKey = key;
+    // 开关折叠后选中项可能落进行号里：能跟就跟过去，跟不上才取消。
+    if (selected && !visibleCommits().some(c => c.sha === rowSha(selected))) selected = null;
+    else if (selected) selected = rowSha(selected);
+    renderGraph();
+  }
   if (tab === 'branches') renderBranches();
   if (tab === 'team') renderTeam();
   renderTranslationStatus(); translatePending();
@@ -314,7 +369,7 @@ function render() {
 // 同名的本地分支和各远端分支合成一枚标签，减少每行的字数。
 function refGroups(sha) {
   const groups = new Map();
-  for (const r of state.refs.filter(r => r.sha === sha)) {
+  for (const r of state.refs.filter(r => rowSha(r.sha) === sha)) {
     const name = r.remote ? r.name.slice(r.name.indexOf('/') + 1) : r.name;
     const g = groups.get(name) || { name, local: null, remotes: [] };
     if (r.remote) g.remotes.push(r.name); else g.local = r;
@@ -332,7 +387,7 @@ function chips(row, limit) {
   const groups = refGroups(row.sha);
   let html = groups.slice(0, limit).map(g => chip(g, row.color)).join('');
   if (groups.length > limit) html += '<span class="chip more" title="' + escapeHtml(groups.slice(limit).map(g => g.name).join('\n')) + '">+' + (groups.length - limit) + '</span>';
-  if (row.sha === state.head && !groups.some(g => g.local?.full === 'refs/heads/' + state.branch)) html = '<span class="chip here"><span>当前提交</span></span>' + html;
+  if (row.sha === headSha() && !groups.some(g => g.local?.full === 'refs/heads/' + state.branch)) html = '<span class="chip here"><span>当前提交</span></span>' + html;
   return html;
 }
 
@@ -346,14 +401,17 @@ function renderGraph() {
   const spacing = Math.max(13, Math.min(18, (width * 0.42 - 22) / graph.lanes));
   const x = lane => 22 + lane * spacing;
   host.innerHTML = graph.rows.map(row => {
-    const head = row.sha === state.head;
-    return '<button class="commit-row' + (head ? ' head' : '') + '" data-sha="' + row.sha + '" title="' + escapeHtml(subjectLabel(row.subject)) + '"><div class="commit-title">' + escapeHtml(subjectLabel(row.subject)) + '</div><div class="commit-meta">' + chips(row, 2) + '<span class="author" title="提交作者：' + escapeHtml(row.author) + '（提交时填写的 Git 姓名，不是账号认证）">' + escapeHtml(row.author) + '</span><span class="dot">·</span><span class="when">' + age(row.date) + '</span></div></button>';
+    const head = row.sha === headSha(), folded = !!row.auto?.folded;
+    const hint = folded ? '连续 ' + row.auto.count + ' 条 Maker 构建快照，点击挑选一条查看改动' : row.auto ? 'Maker 构建自动生成的快照提交' : '提交作者：' + row.author + '（提交时填写的 Git 姓名，不是账号认证）';
+    const when = folded ? autoRange(row) : age(row.date);
+    return '<button class="commit-row' + (head ? ' head' : '') + (row.auto ? ' auto' : '') + (folded ? ' folded' : '') + '" data-sha="' + row.sha + '" title="' + escapeHtml(row.auto ? row.subject : subjectLabel(row.subject)) + '"><div class="commit-title">' + escapeHtml(row.auto ? autoTitle(row) : subjectLabel(row.subject)) + '</div><div class="commit-meta">' + chips(row, 2) + '<span class="author" title="' + escapeHtml(hint) + '">' + escapeHtml(row.auto ? 'Maker' : row.author || '') + '</span><span class="dot">·</span><span class="when">' + escapeHtml(when || '') + '</span></div></button>';
   }).join('');
   const elements = [...host.querySelectorAll('.commit-row')];
   elements.forEach((el, i) => el.style.setProperty('--indent', Math.round(x(graph.reach[i]) + 16 - 8) + 'px'));
   geometry = { x, y: elements.map(el => el.offsetTop + 20), height: host.scrollHeight, elements };
   drawGraph();
-  $('#graph-foot').textContent = (timelineScope === 'current' ? (state.detached ? '当前提交' : '当前分支') : '全仓库') + ' · ' + commits.length + ' 条提交' + ((timelineScope === 'current' ? state.currentTruncated : state.truncated) ? ' · 虚线连接更早的记录' : ' · 点击看摘要，再点查看改动');
+  const folded = displayModel().folded;
+  $('#graph-foot').textContent = (timelineScope === 'current' ? (state.detached ? '当前提交' : '当前分支') : '全仓库') + ' · ' + commits.length + ' 条提交' + (folded ? ' · 已折叠 ' + folded + ' 条自动同步' : '') + ((timelineScope === 'current' ? state.currentTruncated : state.truncated) ? ' · 虚线连接更早的记录' : ' · 点击看摘要，再点查看改动');
   filterGraph(); renderSheet();
 }
 // 折线拐点做小圆角，线条读起来更顺。
@@ -381,7 +439,7 @@ function edgePoints(link) {
 }
 function drawGraph() {
   if (!graph) return;
-  const { x, y, height } = geometry, focus = selected || state.head;
+  const { x, y, height } = geometry, focus = selected || headSha();
   const chain = GitGraph.trunk(graph, focus), onTrunk = new Set(chain);
   let svg = '<svg width="' + (x(graph.lanes) + 10) + '" height="' + height + '" aria-hidden="true">';
   for (const link of graph.links) if (!onTrunk.has(link)) svg += '<path class="edge c' + link.color + (link.boundary ? ' boundary' : '') + '" d="' + polyline(edgePoints(link)) + '"/>';
@@ -396,7 +454,8 @@ function drawGraph() {
   }
   for (const row of graph.rows) {
     const cx = x(row.lane), cy = y[row.row];
-    if (row.sha === state.head || row.sha === selected) svg += '<circle class="node-ring c' + row.color + '" cx="' + cx + '" cy="' + cy + '" r="' + (row.sha === state.head ? 10 : 9) + '"/>';
+    const here = row.sha === headSha();
+    if (here || row.sha === selected) svg += '<circle class="node-ring c' + row.color + '" cx="' + cx + '" cy="' + cy + '" r="' + (here ? 10 : 9) + '"/>';
     svg += '<circle class="node c' + row.color + (row.parents.length > 1 ? ' merge' : '') + '" cx="' + cx + '" cy="' + cy + '" r="' + (row.parents.length > 1 ? 4.6 : 5.2) + '"/>';
   }
   $('#graph').querySelector(':scope > svg')?.remove();
@@ -408,7 +467,7 @@ function filterGraph() {
   const q = $('#search').value.trim().toLowerCase();
   geometry.elements.forEach((el, i) => {
     const c = graph.rows[i];
-    const haystack = [c.sha, c.subject, subjectLabel(c.subject), c.author, ...state.refs.filter(r => r.sha === c.sha).map(r => r.name)].join(' ').toLowerCase();
+    const haystack = [c.sha, c.subject, c.auto ? '自动同步 Maker' + (c.auto.count > 1 ? ' 折叠 ' + c.auto.count + ' 条' : '') : subjectLabel(c.subject), c.author, ...state.refs.filter(r => rowSha(r.sha) === c.sha).map(r => r.name)].join(' ').toLowerCase();
     el.classList.toggle('dimmed', !!q && !haystack.includes(q));
     el.classList.toggle('search-match', !!q && haystack.includes(q));
   });
@@ -425,11 +484,20 @@ function renderSheet() {
   const sheet = $('#sheet'), row = graph?.rows.find(r => r.sha === selected);
   sheet.hidden = !row;
   if (!row) return;
-  const refs = refGroups(row.sha);
-  sheet.innerHTML = '<div class="sheet-head"><div class="sheet-title">' + escapeHtml(subjectLabel(row.subject)) + '</div><button class="icon-button" data-sheet="close" title="关闭" aria-label="关闭">' + icon('close') + '</button></div>' +
-    '<div class="sheet-meta"><span>提交作者：' + escapeHtml(row.author) + '</span><span>' + age(row.date) + '</span><span class="mono" title="提交编号：这条记录的唯一标识">编号 ' + short(row.sha) + '</span>' + (row.parents.length > 1 ? '<span>合并提交</span>' : '') + '</div>' +
-    (refs.length || row.sha === state.head ? '<div class="sheet-refs">' + chips(row, 6) + '</div>' : '') +
-    originalSubject(row.subject) + '<div class="sheet-actions"><button class="main" data-sheet="detail" title="查看这次提交修改了哪些文件和代码">查看改动</button>' + (row.sha === state.head ? '' : '<button data-sheet="compare" title="只查看提交数量和文件差异，不执行合并或切换">和当前分支比较</button>') + '</div>';
+  const refs = refGroups(row.sha), head = row.sha === headSha();
+  if (row.auto?.folded) {
+    // 折叠行不是一次真实提交，列出它包含的快照，而不是显示一份假补丁。
+    sheet.innerHTML = '<div class="sheet-head"><div class="sheet-title">自动同步 · ' + row.auto.count + ' 条提交</div><button class="icon-button" data-sheet="close" title="关闭" aria-label="关闭">' + icon('close') + '</button></div>' +
+      '<div class="sheet-meta"><span>Maker 构建推送的快照</span><span>' + escapeHtml(autoRange(row)) + '</span>' + (head ? '<span>当前提交</span>' : '') + '</div>' +
+      (refs.length ? '<div class="sheet-refs">' + chips(row, 6) + '</div>' : '') +
+      '<p class="auto-note">每次构建都会留下一条快照，默认折成一行。点任意一条查看它的改动；不想折叠可以在「远端与显示」里关闭。</p>' +
+      '<div class="auto-list">' + row.auto.members.map(m => '<button class="auto-item" data-commit="' + m.sha + '" title="' + escapeHtml(m.subject) + '"><span class="mono">' + short(m.sha) + '</span><span class="auto-time">' + escapeHtml(clock(m.date)) + '</span></button>').join('') + '</div>';
+    return;
+  }
+  sheet.innerHTML = '<div class="sheet-head"><div class="sheet-title">' + escapeHtml(row.auto ? autoTitle(row) : subjectLabel(row.subject)) + '</div><button class="icon-button" data-sheet="close" title="关闭" aria-label="关闭">' + icon('close') + '</button></div>' +
+    '<div class="sheet-meta"><span>提交作者：' + escapeHtml(row.author) + '</span><span>' + age(row.date) + '</span><span class="mono" title="提交编号：这条记录的唯一标识">编号 ' + short(row.sha) + '</span>' + (row.parents.length > 1 ? '<span>合并提交</span>' : '') + (row.auto ? '<span>构建自动生成</span>' : '') + '</div>' +
+    (refs.length || head ? '<div class="sheet-refs">' + chips(row, 6) + '</div>' : '') +
+    (row.auto ? '' : originalSubject(row.subject)) + '<div class="sheet-actions"><button class="main" data-sheet="detail" title="查看这次提交修改了哪些文件和代码">查看改动</button>' + (head ? '' : '<button data-sheet="compare" title="只查看提交数量和文件差异，不执行合并或切换">和当前分支比较</button>') + '</div>';
 }
 
 function renderBranches() {
@@ -440,18 +508,19 @@ function renderBranches() {
     for (const r of refs) {
       const current = r.full === 'refs/heads/' + state.branch;
       const worktrees = state.worktrees.filter(w => w.branch === r.name && !r.remote);
-      html += '<div class="branch-item"><span class="branch-dot' + (remote ? '' : ' local') + '"></span><div class="branch-main"><div class="branch-name"><span>' + escapeHtml(r.name) + '</span>' + (current ? '<span class="chip here"><span>当前</span></span>' : '') + '</div><div class="branch-description" title="' + escapeHtml(subjectLabel(r.subject)) + '">' + escapeHtml(subjectLabel(r.subject)) + '</div><div class="branch-meta">' + escapeHtml(r.author) + ' · ' + age(r.date) + (worktrees.length ? ' · 已在 ' + worktrees.length + ' 个本机工作区检出' : '') + '</div></div><div class="branch-actions"><button class="text-button" data-locate="' + r.sha + '" title="在提交图中找到分支指向的最新提交">定位</button>' + (current ? '' : '<button class="text-button" data-compare="' + escapeHtml(r.full) + '" title="查看与当前分支的差距和文件差异，不执行合并或切换">比较</button>') + '</div></div>';
+      html += '<div class="branch-item"><span class="branch-dot' + (remote ? '' : ' local') + '"></span><div class="branch-main"><div class="branch-name"><span>' + escapeHtml(r.name) + '</span>' + (current ? '<span class="chip here"><span>当前</span></span>' : '') + '</div><div class="branch-description" title="' + escapeHtml(refLabel(r)) + '">' + escapeHtml(refLabel(r)) + '</div><div class="branch-meta">' + escapeHtml(r.author) + ' · ' + age(r.date) + (worktrees.length ? ' · 已在 ' + worktrees.length + ' 个本机工作区检出' : '') + '</div></div><div class="branch-actions"><button class="text-button" data-locate="' + r.sha + '" title="在提交图中找到分支指向的最新提交">定位</button>' + (current ? '' : '<button class="text-button" data-compare="' + escapeHtml(r.full) + '" title="查看与当前分支的差距和文件差异，不执行合并或切换">比较</button>') + '</div></div>';
     }
   }
   $('#branches').innerHTML = html;
 }
 function locate(sha) {
-  if (!visibleCommits().some(c => c.sha === sha)) {
+  // 折叠后真正的提交编号不是一行，先换到它所在的那一行再定位。
+  if (!visibleCommits().some(c => c.sha === rowSha(sha))) {
     if (state.commits.some(c => c.sha === sha)) setTimelineScope('all');
     else if (state.currentCommits?.some(c => c.sha === sha)) setTimelineScope('current');
     else { error('这个提交不在当前可显示的最近 180 条记录里，暂时没法在流线上定位。'); return; }
   }
-  error(''); switchTab('timeline'); select(sha, true);
+  error(''); switchTab('timeline'); select(rowSha(sha), true);
 }
 function renderTeam() {
   if (!$('#team-setup')) $('#team').innerHTML = '<div id="team-worktrees"></div><div id="team-setup"></div><div id="team-live"></div>';
@@ -474,7 +543,7 @@ function renderTeam() {
         const elapsed = team.serverTime + performance.now() - team.receivedMonotonic - m.seenAt;
         const online = !teamError && elapsed < 90000;
         const known = [...state.commits, ...(state.currentCommits || [])].some(c => c.sha === m.head);
-        html += '<button class="person"' + (known ? ' data-locate="' + escapeHtml(m.head) + '" title="在流线上定位"' : ' title="这个提交还没推送或不在本机记录里"') + '><div class="person-head"><span class="avatar">' + escapeHtml(m.name.slice(0, 1)) + '</span><span class="person-name">' + escapeHtml(m.name) + (m.id === team.me ? '（我）' : '') + '</span><span class="status ' + (online ? 'online' : '') + '">' + (online ? '● 在线' : '最后上报 ' + age(Date.now() - elapsed)) + '</span></div><div class="branch">' + (online ? '' : '最后使用 ') + escapeHtml(m.branch || '未检出分支') + '</div><div class="line"><span class="mono">' + short(m.head) + '</span> ' + escapeHtml(subjectLabel(m.subject)) + '</div><div class="line faint">' + escapeHtml(m.dirty) + ' 项未提交 · ' + (m.ahead === null ? '未关联上游' : escapeHtml(m.ahead) + ' 个提交待推送') + (online ? ' · ' + age(Date.now() - elapsed) + '上报' : '') + '</div></button>';
+        html += '<button class="person"' + (known ? ' data-locate="' + escapeHtml(m.head) + '" title="在流线上定位"' : ' title="这个提交还没推送或不在本机记录里"') + '><div class="person-head"><span class="avatar">' + escapeHtml(m.name.slice(0, 1)) + '</span><span class="person-name">' + escapeHtml(m.name) + (m.id === team.me ? '（我）' : '') + '</span><span class="status ' + (online ? 'online' : '') + '">' + (online ? '● 在线' : '最后上报 ' + age(Date.now() - elapsed)) + '</span></div><div class="branch">' + (online ? '' : '最后使用 ') + escapeHtml(m.branch || '未检出分支') + '</div><div class="line"><span class="mono">' + short(m.head) + '</span> ' + escapeHtml(GitTimeline.isAutoCommit(m) ? '自动同步' : subjectLabel(m.subject)) + '</div><div class="line faint">' + escapeHtml(m.dirty) + ' 项未提交 · ' + (m.ahead === null ? '未关联上游' : escapeHtml(m.ahead) + ' 个提交待推送') + (online ? ' · ' + age(Date.now() - elapsed) + '上报' : '') + '</div></button>';
       }
       html += '<div class="team-intro small">面板打开时约每 25 秒同步一次；超过 90 秒没有上报就显示最后状态。</div>';
     }
@@ -525,8 +594,10 @@ function patchBody(text) {
   }).filter(Boolean).join('') + '</pre>';
 }
 async function showCommit(sha) {
+  // 折叠行是面板合成的行，不是真实提交，不能拿去读补丁。
+  if (String(sha || '').startsWith('auto:')) return;
   const row = graph?.rows.find(r => r.sha === sha);
-  const rev = openDetail(row ? subjectLabel(row.subject) : '提交编号 ' + short(sha));
+  const rev = openDetail(row ? (row.auto ? autoTitle(row) : subjectLabel(row.subject)) : '提交编号 ' + short(sha));
   activeCommitSubject = row?.subject || '';
   try {
     const data = await rpc('repo/detail', { dir, ref: sha }); if (rev !== detailRevision) return;
@@ -579,6 +650,7 @@ function showReadingGuide() {
     '<dt>点一次提交／查看改动</dt><dd>点一次打开摘要；再点一次或点「查看改动」，查看这次提交修改的文件和代码。差异里绿色带＋是新增行，红色带－是删除行。</dd>' +
     '<dt>定位</dt><dd>在图中找到这个分支指向的最新提交，不切换工作分支。</dd>' +
     '<dt>比较／和当前分支比较</dt><dd>查看两边各自独有的提交数和文件差异，不执行合并或切换。</dd>' +
+    '<dt>自动同步（远端与显示）</dt><dd>Maker 每次构建推送都会留下一条快照提交，默认折成一行，只显示次数和时间段。点这一行可以挑一条查看改动；不想折叠就在这里关掉。</dd>' +
     '<dt>路径流光（远端与显示）</dt><dd>开启或关闭选中历史路径上的流光。</dd>' +
     '<dt>保存并同步（协作页）</dt><dd>保存共享设置，开启共享时向已配置的团队服务上报昵称、分支、最新提交和未提交数量。</dd>' +
     '</dl><h3>分支名和编号</h3><p>ui/story-bg-grid、huhutest、2026-10-12 都是仓库里真实的分支名，名称本身由创建者决定。分支标签指向该分支目前的末端提交，不代表这行的作者拥有整个分支。编号是提交的唯一标识，方便找到同一次记录。</p></article>';
@@ -679,6 +751,12 @@ $('#auto-fetch').onchange = async event => {
 $('#search').oninput = filterGraph;
 $('#timeline-scope').onchange = () => setTimelineScope($('#timeline-scope').value);
 $('#motion').onclick = async () => { try { config = await rpc('config/update', { motion: config.motion === false }); options(); } catch (e) { error(e.message); } };
+$('#auto-sync').onclick = async () => {
+  const button = $('#auto-sync'); button.disabled = true;
+  try { config = await rpc('config/update', { foldAuto: config.foldAuto === false }); options(); graphKey = ''; if (state) render(); }
+  catch (e) { options(); error(e.message); }
+  finally { button.disabled = false; }
+};
 $('#close-detail').onclick = closeDetail;
 $('#reading-guide').onclick = showReadingGuide;
 $('#retry-translation').onclick = () => translatePending(true);
@@ -689,16 +767,21 @@ $('#dirty').onclick = () => {
 $('.tabs').onclick = event => { const button = event.target.closest('[data-tab]'); if (button) switchTab(button.dataset.tab); };
 $('#graph').onclick = event => {
   const row = event.target.closest('[data-sha]'); if (!row) return;
-  if (controlsCollapsed) { selected = row.dataset.sha; drawGraph(); showCommit(selected); }
+  const folded = graph?.rows.find(r => r.sha === row.dataset.sha)?.auto?.folded;
+  // 折叠行点第二次也没补丁可看，统一回到摘要里的快照列表。
+  if (folded) { selected = row.dataset.sha; drawGraph(); renderSheet(); }
+  else if (controlsCollapsed) { selected = row.dataset.sha; drawGraph(); showCommit(selected); }
   else if (row.dataset.sha === selected) showCommit(selected); else select(row.dataset.sha);
 };
 $('#graph').onkeydown = event => {
   if (!['ArrowDown', 'ArrowUp'].includes(event.key) || !geometry) return;
-  const i = geometry.elements.findIndex(el => el.dataset.sha === (selected || state.head));
+  const i = geometry.elements.findIndex(el => el.dataset.sha === (selected || headSha()));
   const next = geometry.elements[Math.max(0, Math.min(geometry.elements.length - 1, i + (event.key === 'ArrowDown' ? 1 : -1)))];
   if (next) { event.preventDefault(); next.focus(); select(next.dataset.sha, true); }
 };
 $('#sheet').onclick = event => {
+  const member = event.target.closest('[data-commit]');
+  if (member) return showCommit(member.dataset.commit);
   const action = event.target.closest('[data-sheet]')?.dataset.sheet;
   if (action === 'close') select(null);
   if (action === 'detail') showCommit(selected);
@@ -751,7 +834,12 @@ GitBridge.on(async message => {
   }
   if (message.type === 'config-changed') {
     ++teamGeneration; team = null; teamError = ''; nextTeamAt = 0; teamFailures = 0;
-    try { config = await rpc('config/read'); if (configReady) await syncRepositoryLock(config); options(); if (state && tab === 'team') renderTeam(); } catch (e) { error(e.message); }
+    try {
+      const wasFold = config.foldAuto;
+      config = await rpc('config/read'); if (configReady) await syncRepositoryLock(config); options(); if (state && tab === 'team') renderTeam();
+      // 其他面板改了折叠开关时，这里也要跟着重画流线。
+      if (state && config.foldAuto !== wasFold) { graphKey = ''; render(); }
+    } catch (e) { error(e.message); }
   }
   if (message.type === 'repo-connected' && message.dir !== dir && (!activeFocus || !message.sessionId || message.sessionId === activeFocus.sessionId)) connect(message.dir);
 });

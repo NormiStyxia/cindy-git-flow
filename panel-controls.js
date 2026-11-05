@@ -9,8 +9,10 @@ window.GitChoices = (() => {
   }
   function set(button, items, value) {
     const previous = choices.get(button);
+    const nextValue = items.some(item => item.value === value) ? value : items[0]?.value || '';
+    if (previous && button.value === nextValue && JSON.stringify(previous) === JSON.stringify(items)) return;
     choices.set(button, items);
-    button.value = items.some(item => item.value === value) ? value : items[0]?.value || '';
+    button.value = nextValue;
     const current = items.find(item => item.value === button.value);
     const label = document.createElement('span'); label.textContent = current?.label || button.dataset.empty || '暂无选项';
     const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg');

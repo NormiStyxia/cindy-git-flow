@@ -5,7 +5,7 @@
   "name": "Git 流线",
   "description": "在对话左侧查看本地仓库、流动分支图、最新提交和队友状态",
   "whenToUse": "在对话左侧查看本地仓库、流动分支图、最新提交和队友状态",
-  "version": "1.7.0",
+  "version": "1.8.2",
   "entry": "main.js",
   "icon": "assets/icon.png",
   "tools": [

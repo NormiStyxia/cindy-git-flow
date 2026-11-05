@@ -64,9 +64,12 @@
     <p class="preference-note">获取远端分支和提交记录，不会自动合并代码。</p>
     <div class="preference-section"><p id="tracking" class="preference-note"></p><p id="sampled" class="preference-note"></p></div>
     <div class="preference-row preference-section"><span>路径流光</span><button id="motion" class="switch" aria-label="路径流光" aria-pressed="true"><span></span></button></div>
+    <div class="preference-row"><span>折叠自动同步</span><button id="auto-sync" class="switch" aria-label="折叠 Maker 自动同步提交" aria-describedby="auto-sync-help" aria-pressed="true"><span></span></button></div>
+    <p id="auto-sync-help" class="preference-note">开启后，连续快照合成「自动同步 ×N」；单条显示为「自动同步」。点开可看改动，不会删除 Git 记录。</p>
     <button id="reading-guide" class="text-button guide-link">读图说明与操作帮助</button>
+    <p class="preference-note">Git 流线 1.8.2</p>
   </section>
   <div id="choice-menu" class="choice-menu scroll" role="listbox" hidden></div>
   <aside id="detail" hidden aria-label="详情"><div class="detail-head"><button id="close-detail" class="icon-button" title="返回" aria-label="返回"><svg><use href="#i-back"/></svg></button><span id="detail-title"></span></div><div id="detail-body" class="scroll"></div></aside>
-</main><script src="bridge.js"></script><script src="graph.js"></script><script src="labels.js"></script><script src="fetch-schedule.js"></script><script src="panel-controls.js"></script><script src="panel.js"></script>
+</main><script src="bridge.js"></script><script src="graph.js"></script><script src="timeline.js"></script><script src="labels.js"></script><script src="fetch-schedule.js"></script><script src="panel-controls.js"></script><script src="panel.js"></script>
 </body></html>
