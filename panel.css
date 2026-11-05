@@ -321,3 +321,66 @@ button.pill:hover { background: color-mix(in srgb, var(--fg) 10%, transparent); 
 @media (prefers-reduced-motion: reduce) { .flow, .flow-glow { animation: none; display: none; } }
 @media (prefers-reduced-motion: reduce) { .controls, .switch span { transition: none; } }
 @media (max-width: 360px) { .tabs { gap: 17px; } .overview { gap: 5px; } .pill { padding-inline: 5px; } }
+
+/* 仓库切换与账号：铺满面板的全尺寸弹层，仓库很多时也能看到尽量多的行。 */
+#app:has(> .overlay:not([hidden])) > :not(.overlay):not(#choice-menu) { visibility: hidden; }
+.overlay { position: absolute; inset: 0; z-index: 7; display: flex; flex-direction: column; background: transparent; min-height: 0; }
+.overlay-head { display: flex; align-items: center; gap: 6px; padding: 8px 10px 8px 8px; border-bottom: 1px solid var(--line); font-size: 14px; flex-shrink: 0; min-width: 0; }
+.overlay-head b { font-weight: 650; white-space: nowrap; }
+.overlay-head .icon-button:last-child { margin-left: auto; }
+.overlay-sub { font-size: 12.5px; color: var(--fg-3); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.overlay-head .overlay-sub { margin-left: auto; padding-right: 4px; }
+.overlay-tools { display: flex; flex-direction: column; gap: 8px; padding: 10px 14px 6px; flex-shrink: 0; }
+.overlay-body { flex: 1; min-height: 0; padding-bottom: 16px; }
+.overlay-foot { display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 8px 10px; border-top: 1px solid var(--line); flex-shrink: 0; }
+.segmented { display: flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--hover); }
+.segmented button { flex: 1; padding: 5px 8px; font-size: 13px; border-radius: 7px; color: var(--fg-2); }
+.segmented button[aria-selected=true] { background: var(--bg); color: var(--fg); font-weight: 600; box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
+.cloud-row { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 13px; }
+.cloud-label { color: var(--fg-2); flex-shrink: 0; }
+#cloud-account { max-width: 46%; font-weight: 600; }
+.cloud-row .icon-button { width: 28px; height: 28px; }
+.cloud-row .overlay-sub { flex: 1; text-align: right; }
+.repo-row { display: flex; align-items: center; gap: 6px; margin: 0 8px; border-radius: 10px; }
+.repo-row:hover { background: var(--hover); }
+.repo-row.current { background: var(--accent-bg); }
+.repo-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 8px 10px; border-radius: 10px; }
+.repo-main:hover { background: none; }
+.repo-main:focus-visible { outline-offset: -2px; }
+.repo-main[disabled] { cursor: default; }
+.repo-name { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 14px; }
+.repo-name b { font-weight: 620; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.repo-name .muted { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.repo-line { display: flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--fg-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.repo-line.faint { color: var(--fg-3); opacity: .8; }
+.repo-line svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; flex-shrink: 0; }
+.repo-action { flex-shrink: 0; padding-right: 6px; font-size: 12.5px; }
+.cloning { color: var(--accent); white-space: nowrap; }
+.badge { flex-shrink: 0; font-size: 11.5px; line-height: 1; padding: 3px 6px; border-radius: 5px; background: var(--hover); color: var(--fg-2); font-weight: 500; white-space: nowrap; }
+.badge.good { background: var(--accent); color: var(--accent-fg); }
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+.scan-roots { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 14px 18px 4px; font-size: 12.5px; color: var(--fg-3); }
+.scan-root { display: inline-flex; align-items: center; gap: 2px; max-width: 100%; padding: 1px 2px 1px 8px; border-radius: 6px; background: var(--hover); color: var(--fg-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scan-root .icon-button { width: 22px; height: 22px; }
+.scan-root .icon-button svg { width: 13px; height: 13px; }
+.account-toggle .avatar-mini { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11.5px; font-weight: 700; line-height: 1; }
+.account-toggle .avatar-mini svg { width: 17px; height: 17px; }
+.account-toggle.signed-in .avatar-mini { background: var(--accent); color: var(--accent-fg); }
+.account-row { display: flex; align-items: center; gap: 10px; margin: 0 8px; padding: 8px 10px; border-radius: 10px; flex-wrap: wrap; }
+.account-row.active { background: var(--accent-bg); }
+.account-row .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--hover); font-weight: 700; flex-shrink: 0; }
+.account-row.active .avatar { background: var(--accent); color: var(--accent-fg); }
+.account-main { flex: 1; min-width: 120px; }
+.account-name { display: flex; align-items: center; gap: 6px; font-weight: 620; font-size: 14px; overflow-wrap: anywhere; }
+.account-meta { font-size: 12.5px; color: var(--fg-3); }
+.account-actions { display: flex; flex-wrap: wrap; gap: 2px; margin-left: auto; }
+.text-button.subtle { color: var(--fg-2); font-weight: 500; }
+.text-button[disabled] { opacity: .5; cursor: default; }
+a.text-button { text-decoration: none; display: inline-block; }
+.account-card { margin: 0 16px; font-size: 13.5px; }
+.account-card p { margin: 0 0 8px; overflow-wrap: anywhere; }
+.account-card .small { font-size: 12.5px; color: var(--fg-3); line-height: 1.6; }
+.account-card .text-button { margin-left: -8px; }
+.good-text { color: var(--accent); }
+.device-code { font-size: 26px; font-weight: 700; letter-spacing: .12em; padding: 10px 14px; margin: 0 0 8px; border-radius: 10px; background: var(--hover); text-align: center; user-select: all; }
+#account-notice { background: var(--accent-bg); color: var(--fg); }

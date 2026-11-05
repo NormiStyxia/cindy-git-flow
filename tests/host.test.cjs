@@ -244,3 +244,40 @@ test('用量事件只写后台配置，不向面板广播仓库或翻译更新',
  const h=host();await h.listener({type:'event',name:'did-turn-end',data:{model:'m',usage:{inputTokens:1,outputTokens:2}}});await new Promise(r=>setTimeout(r,20));
  assert(h.messages.some(m=>m.type==='usage-changed'));assert(!h.messages.some(m=>m.type==='repo-connected'||m.type==='translations-changed'));
 });
+test('连接仓库时记住远端身份，最近仓库保留 30 个',async()=>{
+ const repositories=Array.from({length:35},(_,i)=>'/old-'+i);
+ const h=host(false,null,async r=>({ok:true,result:{dir:r.params.dir,remotes:[{name:'origin',identity:'github.com/Me/Repo'}]}}),{repositories,repoRemotes:{'/old-0':['github.com/me/old']}});
+ h.request('open','repo/connect',{dir:'/new'});await h.result('open');
+ assert.equal(h.config.repositories.length,30);assert.equal(h.config.repositories[0],'/new');
+ assert.deepEqual(h.config.repoRemotes['/new'],['github.com/me/repo']);assert.deepEqual(h.config.repoRemotes['/old-0'],['github.com/me/old']);
+});
+test('本机扫描保留仅大小写不同的仓库和扫描根目录',async()=>{
+ const h=host(false,null,async r=>({ok:true,result:{root:r.params.root,repos:[{dir:'/work/game',ids:['github.com/me/lower']}]}}),{repositories:['/work/Game'],repoRemotes:{'/work/Game':['github.com/me/upper']},scanRoots:['/work']});
+ h.request('list-case','local/list');const listed=(await h.result('list-case')).result;
+ assert.deepEqual(Array.from(listed.repos,r=>r.dir),['/work/Game','/work/game']);
+ assert.deepEqual(Array.from(listed.repos[0].ids),['github.com/me/upper']);
+ h.context.cindy.pick=async()=>({ok:true,path:'/Work'});
+ h.request('scan-case','local/scan');await h.result('scan-case');
+ assert.deepEqual(h.config.scanRoots,['/Work','/work']);
+});
+test('云端仓库列表按账号缓存，刷新时重新读取',async()=>{
+ const h=host(false,null,async r=>({ok:true,result:{login:r.params.login,repos:[],fetchedAt:'now'}}));
+ h.request('c1','cloud/list',{login:'alice'});await h.result('c1');h.request('c2','cloud/list',{login:'alice'});await h.result('c2');
+ assert.equal(h.calls.filter(c=>c.method==='cloud/list').length,1);
+ h.request('c3','cloud/list',{login:'alice',refresh:true});await h.result('c3');assert.equal(h.calls.filter(c=>c.method==='cloud/list').length,2);
+ h.request('bad','cloud/list',{login:'../x'});assert((await h.result('bad')).error);
+});
+test('克隆先选文件夹，取消时不启动 Git，完成后连接新仓库',async()=>{
+ const h=host(false,null,async r=>r.method==='cloud/clone'?{ok:true,result:{dir:'D:\work\repo'}}:{ok:true,result:{dir:r.params.dir,remotes:[]}});
+ let picked=null;h.context.cindy.pick=async()=>picked?{ok:true,path:picked}:{ok:false,errorCode:'CANCELLED'};
+ h.request('cancel','cloud/clone',{login:'alice',fullName:'alice/repo'});assert.equal((await h.result('cancel')).result,null);assert.equal(h.calls.length,0);
+ picked='D:\work';h.request('go','cloud/clone',{login:'alice',fullName:'alice/repo'});await h.result('go');
+ assert.deepEqual(h.calls.map(c=>c.method),['cloud/clone','repo/snapshot']);assert.equal(h.calls[0].params.parent,'D:\work');assert.equal(h.calls[0].maxTotalMs,900000);
+});
+test('切换账号通知所有面板；云端仓库工具按关键字筛选且不返回内部字段',async()=>{
+ const repos=[{fullName:'alice/game',description:'racing',identity:'github.com/alice/game'},{fullName:'alice/tool',description:'cli',identity:'github.com/alice/tool'}];
+ const h=host(false,null,async r=>({ok:true,result:r.method==='account/list'?{active:'alice',accounts:[]}:r.method==='cloud/list'?{repos,fetchedAt:'now'}:{active:r.params.login}}));
+ h.request('sw','account/switch',{login:'bob'});await h.result('sw');assert(h.messages.some(m=>m.type==='accounts-changed'));
+ await h.listener({type:'tool-call',tool:'git_cloud_repos',callId:'q',args:{query:'RACING'}});
+ const out=h.messages.find(m=>m.type==='tool-result'&&m.callId==='q');assert.equal(out.ok,true);assert.equal(out.result.login,'alice');assert.equal(out.result.matched,1);assert.equal(out.result.repos[0].identity,undefined);
+});

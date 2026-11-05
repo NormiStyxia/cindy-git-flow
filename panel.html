@@ -13,16 +13,18 @@
   <symbol id="i-chevron" viewBox="0 0 20 20"><path d="m5.5 7.5 4.5 4.5 4.5-4.5"/></symbol>
   <symbol id="i-settings" viewBox="0 0 20 20"><path d="M4 5h2m4 0h6M4 10h7m4 0h1M4 15h1m4 0h7"/><circle cx="8" cy="5" r="2"/><circle cx="13" cy="10" r="2"/><circle cx="7" cy="15" r="2"/></symbol>
   <symbol id="i-lock" viewBox="0 0 20 20"><rect x="4.5" y="8.5" width="11" height="8" rx="2"/><path d="M6.5 8.5V6a3.5 3.5 0 0 1 7 0v2.5M10 12v1.5"/></symbol>
+  <symbol id="i-user" viewBox="0 0 20 20"><circle cx="10" cy="7" r="3.2"/><path d="M4.2 16.2c.9-3 3.2-4.4 5.8-4.4s4.9 1.4 5.8 4.4"/></symbol>
   <symbol id="i-unlock" viewBox="0 0 20 20"><rect x="4.5" y="8.5" width="11" height="8" rx="2"/><path d="M6.5 8.5V6a3.5 3.5 0 0 1 6.7-1.4M10 12v1.5"/></symbol>
 </svg>
 <main id="app">
   <div id="controls" class="controls"><div class="controls-inner">
     <header class="repo-bar">
       <button id="follow-session" class="icon-button" title="自动跟随对话的项目" aria-label="自动跟随对话的项目" aria-pressed="true"><svg><use href="#i-branch"/></svg></button>
-      <button id="repo-select" class="choice-trigger repo-choice" aria-label="切换仓库" aria-haspopup="listbox" aria-expanded="false">选择仓库</button>
+      <button id="repo-select" class="choice-trigger repo-choice" data-dialog="repo-dialog" aria-label="切换仓库" aria-haspopup="dialog" aria-expanded="false" aria-controls="repo-dialog">选择仓库</button>
       <button id="pick" class="icon-button" title="打开其他仓库" aria-label="打开其他仓库"><svg><use href="#i-plus"/></svg></button>
       <button id="repository-lock" class="icon-button" disabled title="选择仓库后可以锁定" aria-label="锁定当前仓库" aria-pressed="false"><svg><use href="#i-unlock"/></svg></button>
       <button id="refresh" class="icon-button" disabled title="刷新本地记录" aria-label="刷新本地记录"><svg><use href="#i-refresh"/></svg></button>
+      <button id="account-toggle" class="icon-button account-toggle" title="GitHub 账号" aria-label="GitHub 账号" aria-haspopup="dialog" aria-expanded="false" aria-controls="account-dialog"><span class="avatar-mini" aria-hidden="true"><svg><use href="#i-user"/></svg></span></button>
       <button id="preferences-toggle" class="icon-button" disabled title="远端与显示" aria-label="远端与显示" aria-haspopup="dialog" aria-expanded="false" aria-controls="preferences"><svg><use href="#i-settings"/></svg><i class="sync-dot" hidden></i></button>
     </header>
     <div id="overview" class="overview" hidden>
@@ -43,6 +45,7 @@
     <h2 id="welcome-title">把分支关系看清楚</h2>
     <p id="welcome-message">切换到项目对话，自动显示它的仓库。<br>也可以手动选择本机仓库。</p>
     <button id="welcome-pick" class="primary">选择仓库文件夹</button>
+    <p><button id="welcome-browse" class="text-button">浏览本机与云端仓库</button></p>
     <p class="hint">读取真实版本记录 · 支持多个工作区</p>
   </section>
   <section id="workspace" hidden>
@@ -67,9 +70,26 @@
     <div class="preference-row"><span>折叠自动同步</span><button id="auto-sync" class="switch" aria-label="折叠 Maker 自动同步提交" aria-describedby="auto-sync-help" aria-pressed="true"><span></span></button></div>
     <p id="auto-sync-help" class="preference-note">开启后，连续快照合成「自动同步 ×N」；单条显示为「自动同步」。点开可看改动，不会删除 Git 记录。</p>
     <button id="reading-guide" class="text-button guide-link">读图说明与操作帮助</button>
-    <p class="preference-note">Git 流线 1.8.2</p>
+    <p class="preference-note">Git 流线 1.9.0</p>
+  </section>
+  <section id="repo-dialog" class="overlay" role="dialog" aria-labelledby="repo-dialog-title" hidden>
+    <div class="overlay-head"><button id="close-repo-dialog" class="icon-button" title="返回" aria-label="返回"><svg><use href="#i-back"/></svg></button><b id="repo-dialog-title">切换仓库</b><span id="repo-dialog-count" class="overlay-sub"></span></div>
+    <div class="overlay-tools">
+      <label class="search"><svg aria-hidden="true"><use href="#i-search"/></svg><input id="repo-search" placeholder="搜索仓库名、所有者、路径或描述" aria-label="搜索仓库" autocomplete="off" spellcheck="false"></label>
+      <div class="segmented" role="tablist" aria-label="仓库来源"><button role="tab" data-repo-scope="all" aria-selected="true">全部</button><button role="tab" data-repo-scope="local" aria-selected="false">本机</button><button role="tab" data-repo-scope="cloud" aria-selected="false">云端</button></div>
+      <div class="cloud-row"><span class="cloud-label">云端账号</span><button id="cloud-account" class="choice-trigger" aria-label="云端仓库所属账号" aria-haspopup="listbox" aria-expanded="false"></button><button id="cloud-refresh" class="icon-button" title="重新读取云端仓库" aria-label="重新读取云端仓库"><svg><use href="#i-refresh"/></svg></button><span id="cloud-status" class="overlay-sub" role="status"></span></div>
+    </div>
+    <div id="repo-dialog-error" class="notice error" role="alert" hidden></div>
+    <div id="repo-list" class="overlay-body scroll"></div>
+    <div class="overlay-foot"><button id="repo-open-folder" class="text-button">＋ 打开本机文件夹</button><button id="repo-scan" class="text-button" title="在所选文件夹下最多 4 层内查找 Git 仓库，以后打开列表会自动刷新">扫描文件夹找仓库</button></div>
+  </section>
+  <section id="account-dialog" class="overlay" role="dialog" aria-labelledby="account-dialog-title" hidden>
+    <div class="overlay-head"><button id="close-account-dialog" class="icon-button" title="返回" aria-label="返回"><svg><use href="#i-back"/></svg></button><b id="account-dialog-title">GitHub 账号</b><button id="account-refresh" class="icon-button" title="重新读取账号" aria-label="重新读取账号"><svg><use href="#i-refresh"/></svg></button></div>
+    <div id="account-notice" class="notice" role="status" hidden></div>
+    <div id="account-error" class="notice error" role="alert" hidden></div>
+    <div id="account-body" class="overlay-body scroll"></div>
   </section>
   <div id="choice-menu" class="choice-menu scroll" role="listbox" hidden></div>
   <aside id="detail" hidden aria-label="详情"><div class="detail-head"><button id="close-detail" class="icon-button" title="返回" aria-label="返回"><svg><use href="#i-back"/></svg></button><span id="detail-title"></span></div><div id="detail-body" class="scroll"></div></aside>
-</main><script src="bridge.js"></script><script src="graph.js"></script><script src="timeline.js"></script><script src="labels.js"></script><script src="fetch-schedule.js"></script><script src="panel-controls.js"></script><script src="panel.js"></script>
+</main><script src="bridge.js"></script><script src="graph.js"></script><script src="timeline.js"></script><script src="labels.js"></script><script src="fetch-schedule.js"></script><script src="panel-controls.js"></script><script src="panel.js"></script><script src="panel-repos.js"></script>
 </body></html>

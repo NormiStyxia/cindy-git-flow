@@ -17,7 +17,7 @@ window.GitChoices = (() => {
     const label = document.createElement('span'); label.textContent = current?.label || button.dataset.empty || '暂无选项';
     const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     arrow.setAttribute('aria-hidden', 'true'); arrow.innerHTML = '<use href="#i-chevron"/>';
-    button.replaceChildren(label, arrow); button.setAttribute('aria-controls', 'choice-menu');
+    button.replaceChildren(label, arrow); if (!button.dataset.dialog) button.setAttribute('aria-controls', 'choice-menu');
     if (origin === button && JSON.stringify(previous) !== JSON.stringify(items)) close(true);
   }
   function open(button, edge) {
@@ -53,7 +53,8 @@ window.GitChoices = (() => {
     const focus = edge === 'first' ? options[0] : edge === 'last' ? options.at(-1) : options.find(el => el.getAttribute('aria-selected') === 'true') || options[0];
     focus?.focus({ preventScroll: true }); focus?.scrollIntoView({ block: 'nearest' });
   }
-  document.querySelectorAll('.choice-trigger').forEach(button => {
+  // 带 data-dialog 的按钮打开自己的弹窗，只借用菜单按钮的外观和标签。
+  document.querySelectorAll('.choice-trigger:not([data-dialog])').forEach(button => {
     button.addEventListener('click', () => open(button));
     button.addEventListener('keydown', event => {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); open(button, event.key === 'ArrowDown' ? 'first' : 'last'); }
