@@ -113,7 +113,7 @@ Maker 标题日期兼容 `2026/11/5`、`2026/11/05` 和 `2026-11-05`。1.8.1 及
 
 - 列出本机 gh 已登录的全部 github.com 账号，可一键「切换到此账号」（`gh auth switch`）。多个账号同时保留。
 - 「添加 GitHub 账号」走浏览器设备授权：面板显示授权码和授权页链接，完成后自动刷新；可随时取消。
-- 「Git 推送使用的账号」显示 github.com 的凭据由谁提供。若是 Git Credential Manager 等独立工具，切换 gh 账号**不会**改变 git push 使用的账号；点「让 Git 推送跟随当前账号」会运行 `gh auth setup-git`，修改全局 Git 配置，之后 github.com 的推送与拉取随当前账号变化。其他网站的凭据不受影响。
+- 「Git 推送凭据配置」只显示全局 HTTPS 配置，不确认当前仓库实际使用哪个账号。点「为 HTTPS 配置 GitHub CLI 凭据」会运行 `gh auth setup-git`，为 github.com 配置全局 HTTPS 凭据。SSH 远端使用 SSH 密钥；仓库级配置、其他凭据工具及环境变量也可能改变实际账号，不能仅凭切换 gh 账号判断推送账号。
 - 「设为提交作者」把全局 `user.name` / `user.email` 设为该账号的 GitHub 名称与隐私邮箱（`id+login@users.noreply.github.com`）。仓库内的本地配置仍优先。
 
 ### 切换仓库大弹窗
@@ -129,6 +129,6 @@ Maker 标题日期兼容 `2026/11/5`、`2026/11/05` 和 `2026-11-05`。1.8.1 及
 
 ### 新增工具
 
-- `git_accounts`：只读列出账号、当前账号、推送凭据来源和全局提交作者。
-- `git_account_switch`：切换 gh 当前账号；结果中的 `gitPush` 说明 git push 是否随之改变。
+- `git_accounts`：只读列出账号、当前账号、全局 HTTPS 凭据配置和全局提交作者。
+- `git_account_switch`：切换 gh 当前账号；结果中的 `gitPush.globalHttpsUsesGh` 表示全局 HTTPS 配置是否包含 gh；`followsActive: null` 表示未核实当前仓库实际推送账号。
 - `git_cloud_repos`：按账号和关键字列出云端仓库，最多 100 条。

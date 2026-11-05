@@ -6,7 +6,7 @@
   "description": "在对话左侧查看本地仓库、流动分支图、最新提交和队友状态；管理 GitHub 账号，搜索并克隆云端仓库",
   "whenToUse": "在对话左侧查看本地仓库、流动分支图、最新提交和队友状态；查看或切换本机 GitHub 账号，列出云端仓库",
   "version": "1.9.0",
-  "releaseNotes": "新增 GitHub 账号管理：查看、切换、添加本机 GitHub CLI 账号，可让 github.com 的 Git 推送跟随当前账号，并可设置全局提交作者。仓库切换改为铺满面板的大弹窗，支持搜索、按本机/云端筛选，列出账号的云端仓库并一键克隆，可扫描文件夹批量找到本机仓库。新增 git_accounts、git_account_switch、git_cloud_repos 工具。最近仓库记录由 12 个增加到 30 个。同时合入 1.8.1、1.8.2 的自动同步快照折叠与同项目面板复用修复。",
+  "releaseNotes": "新增 GitHub 账号管理：查看、切换、添加本机 GitHub CLI 账号，可为 github.com 配置全局 HTTPS 凭据，并可设置全局提交作者。仓库切换改为铺满面板的大弹窗，支持搜索、按本机/云端筛选，列出账号的云端仓库并一键克隆，可扫描文件夹批量找到本机仓库。新增 git_accounts、git_account_switch、git_cloud_repos 工具。最近仓库记录由 12 个增加到 30 个。同时合入 1.8.1、1.8.2 的自动同步快照折叠与同项目面板复用修复。",
   "entry": "main.js",
   "icon": "assets/icon.png",
   "tools": [
@@ -120,7 +120,7 @@
     },
     {
       "name": "git_accounts",
-      "description": "只读列出本机 GitHub CLI 已登录的账号、当前活跃账号、github.com 的 Git 推送凭据由谁提供，以及全局提交作者。不返回令牌。",
+      "description": "只读列出本机 GitHub CLI 已登录的账号、当前活跃账号、github.com 的全局 HTTPS 凭据配置，以及全局提交作者。不返回令牌，不确认当前仓库的实际推送账号。",
       "parameters": {
         "type": "object",
         "properties": {},
@@ -130,7 +130,7 @@
     },
     {
       "name": "git_account_switch",
-      "description": "把本机 GitHub CLI 的当前账号切换为已登录的另一个账号。仅当 Git 推送凭据跟随 GitHub CLI 时，git push 才会随之改用该账号；结果中 gitPush 字段说明是否生效。",
+      "description": "把本机 GitHub CLI 的当前账号切换为已登录的另一个账号。结果中 gitPush 只说明全局 HTTPS 凭据配置，不确认当前仓库的实际推送账号；SSH、仓库级配置和环境变量可能使推送使用其他账号。",
       "parameters": {
         "type": "object",
         "properties": {

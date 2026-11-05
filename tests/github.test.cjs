@@ -5,6 +5,25 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const { parseStatusText, remotesFromConfig, scan, clone } = require('../node/github.cjs');
+const vm = require('node:vm');
+const githubRequire = require('node:module').createRequire(require.resolve('../node/github.cjs'));
+
+test('global HTTPS helper configuration never claims to verify a repository push account', async () => {
+  for (const configured of [false, true]) {
+    const context = { module: { exports: {} }, process, require: id => id === './command.cjs' ? { runCommand: async (command, args) => {
+      if (command === 'gh') return { stdout: JSON.stringify({ hosts: { 'github.com': [{ login: 'alice', active: true }] } }) };
+      assert.ok(args.includes('--global'), 'account summary must not accidentally read worker-directory Git config');
+      return { stdout: args.at(-1) === 'credential.https://github.com.helper' && configured ? '!gh auth git-credential' : '' };
+    } } : githubRequire(id) };
+    vm.runInNewContext(await fs.readFile(path.join(__dirname, '../node/github.cjs'), 'utf8'), context);
+    const result = await context.module.exports.listAccounts();
+    assert.equal(result.gitPush.globalHttpsUsesGh, configured);
+    assert.equal(result.gitPush.followsActive, null);
+    assert.equal(result.gitPush.scope, 'global-https');
+    assert.match(result.gitPush.note, /SSH/);
+    assert.match(result.gitPush.note, /仓库级配置/);
+  }
+});
 
 test('parses gh auth status text from older GitHub CLI releases', () => {
   const text = 'github.com\n  ✓ Logged in to github.com account alice (keyring)\n  - Active account: false\n  ✓ Logged in to github.com account bob-2 (keyring)\n  - Active account: true\n  X Failed to log in to github.com account carol (keyring)\n  ✓ Logged in to ghe.example.com account dave (keyring)\n';

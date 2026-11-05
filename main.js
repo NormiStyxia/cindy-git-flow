@@ -149,7 +149,8 @@ async function connect(dir, callId, sessionId) {
 // GitHub 账号、云端仓库和本机扫描结果只缓存在常驻逻辑的内存里，凭据始终留在 gh。
 const cloudCache = new Map(), scanCache = new Map();
 const validLogin = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/.test(value);
-const sameDir = (a, b) => a.replaceAll('\\', '/').toLowerCase() === b.replaceAll('\\', '/').toLowerCase();
+// Preserve filesystem case: distinct directories must never be merged by spelling.
+const sameDir = (a, b) => a === b;
 async function pickFolder(title) {
   const r = await cindy.pick({ mode: 'directory', title });
   if (r.ok) return r.path;
@@ -214,7 +215,7 @@ async function action(method, params = {}, callId) {
     const parent = await pickFolder('选择把 ' + params.fullName + ' 克隆到哪个文件夹');
     if (!parent) return null;
     const cloned = await node('cloud/clone', { login: params.login, fullName: params.fullName, parent }, callId);
-    for (const root of [...scanCache.keys()]) if (cloned.dir.replaceAll('\\', '/').toLowerCase().startsWith(root.toLowerCase())) scanCache.delete(root);
+    for (const root of [...scanCache.keys()]) if (cloned.dir === root || cloned.dir.startsWith(root.endsWith('/') ? root : root + '/')) scanCache.delete(root);
     return connect(cloned.dir, callId);
   }
   if (method === 'usage/read') return usageSnapshot((await readConfig()).usage);

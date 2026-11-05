@@ -46,9 +46,9 @@ function renderAccounts() {
       (a.active || a.state === 'error' ? '' : '<button class="text-button" data-account-switch="' + escapeHtml(a.login) + '"' + (accountBusy ? ' disabled' : '') + '>切换到此账号</button>') +
       (a.state === 'error' ? '' : '<button class="text-button subtle" data-account-identity="' + escapeHtml(a.login) + '" title="把全局 user.name / user.email 设为这个账号的 GitHub 名称与隐私邮箱"' + (accountBusy ? ' disabled' : '') + '>设为提交作者</button>') + '</div></div>';
   }
-  html += '<div class="section-label">Git 推送使用的账号<span>github.com</span></div><div class="account-card">';
-  if (push.followsActive) html += '<p><b class="good-text">✓ 跟随当前账号</b>' + (accounts.active ? '：推送和拉取会使用 ' + escapeHtml(accounts.active) : '') + '。</p><p class="small">在上面切换账号后，下一次 git push / pull 就会改用新账号。</p>';
-  else html += '<p>当前由 <b>' + escapeHtml(push.label) + '</b> 提供凭据。</p><p class="small">这时切换账号只改变 GitHub CLI 和本插件的云端列表；git push 仍使用凭据工具里单独保存的那个账号。开启后会运行 <span class="mono">gh auth setup-git</span>，修改全局 Git 配置，让 github.com 的推送与拉取跟随当前账号。其他网站的凭据不受影响。</p><button class="text-button" data-account-action="setup-git"' + (accountBusy ? ' disabled' : '') + '>让 Git 推送跟随当前账号</button>';
+  html += '<div class="section-label">Git 推送凭据配置<span>全局 · HTTPS</span></div><div class="account-card">';
+  if (push.globalHttpsUsesGh) html += '<p><b class="good-text">✓ 全局 HTTPS 已配置 GitHub CLI</b></p><p class="small">使用这项配置的 github.com HTTPS 仓库会通过 gh 获取凭据。SSH 远端使用 SSH 密钥，不受这里的账号切换影响；仓库级配置、其他凭据工具或环境变量也可能改变实际使用的账号。这里未核实当前仓库的推送账号。</p>';
+  else html += '<p>全局凭据配置：<b>' + escapeHtml(push.label) + '</b>。</p><p class="small">切换账号不会修改 SSH 密钥或其他凭据工具。点击下方按钮会运行 <span class="mono">gh auth setup-git</span>，将 github.com 的全局 HTTPS 凭据配置为 GitHub CLI；仓库级配置仍可能覆盖它。这里未核实当前仓库的推送账号。</p><button class="text-button" data-account-action="setup-git"' + (accountBusy ? ' disabled' : '') + '>为 HTTPS 配置 GitHub CLI 凭据</button>';
   html += '</div><div class="section-label">提交作者（全局）<span>写进提交记录</span></div><div class="account-card">' +
     (who.name || who.email ? '<p>' + escapeHtml(who.name || '未设置姓名') + ' <span class="muted mono">&lt;' + escapeHtml(who.email || '未设置邮箱') + '&gt;</span></p>' : '<p>未设置全局提交作者，仓库可能使用各自的本地配置。</p>') +
     '<p class="small">提交作者只是名字和邮箱，与推送使用哪个账号无关；仓库内的本地配置会优先于这里。</p></div>';
@@ -83,11 +83,11 @@ $('#close-account-dialog').onclick = () => showOverlay('account-dialog', false);
 $('#account-refresh').onclick = () => { accountNotice = ''; loadAccounts(); };
 $('#account-body').onclick = event => {
   const switchTo = event.target.closest('[data-account-switch]')?.dataset.accountSwitch;
-  if (switchTo) return accountAction(() => rpc('account/switch', { login: switchTo }), latest => '已切换到 ' + switchTo + '。' + (latest.gitPush.followsActive ? 'Git 推送也会使用这个账号。' : '注意：git push 仍使用凭据工具里保存的账号，可在下方开启跟随。'));
+  if (switchTo) return accountAction(() => rpc('account/switch', { login: switchTo }), 'GitHub CLI 已切换到 ' + switchTo + '。实际推送账号取决于仓库的连接方式和凭据配置，详见下方说明。');
   const identity = event.target.closest('[data-account-identity]')?.dataset.accountIdentity;
   if (identity) return accountAction(() => rpc('account/identity', { login: identity }), '全局提交作者已设为 ' + identity + '（GitHub 隐私邮箱）。');
   const action = event.target.closest('[data-account-action]')?.dataset.accountAction;
-  if (action === 'setup-git') return accountAction(() => rpc('account/setup-git'), 'github.com 的 Git 推送已改为跟随当前账号。');
+  if (action === 'setup-git') return accountAction(() => rpc('account/setup-git'), '已为 github.com 配置全局 HTTPS 凭据；SSH 和仓库级覆盖配置仍可能使用其他账号。');
   if (action === 'login') return addAccount();
   if (action === 'login-cancel') rpc('account/login-cancel').catch(e => { accountsError = e.message; renderAccounts(); });
 };
@@ -123,10 +123,10 @@ async function loadLocal(refresh = false) {
 }
 function localEntries() {
   const entries = new Map();
-  const add = (path, extra) => { const key = path.toLowerCase(); entries.set(key, { dir: path, ids: [], recent: false, ...entries.get(key), ...extra }); };
+  const add = (path, extra) => { const key = path; entries.set(key, { dir: path, ids: [], recent: false, ...entries.get(key), ...extra }); };
   for (const p of config.repositories || []) add(p, { recent: true, ids: config.repoRemotes?.[p] || [] });
-  for (const r of localData?.repos || []) add(r.dir, { ids: [...new Set([...(entries.get(r.dir.toLowerCase())?.ids || []), ...r.ids])], recent: r.recent || entries.get(r.dir.toLowerCase())?.recent || false });
-  if (dir) add(dir, { ids: [...new Set([...(entries.get(dir.toLowerCase())?.ids || []), ...(state?.remotes || []).map(r => (r.identity || '').toLowerCase()).filter(Boolean)])] });
+  for (const r of localData?.repos || []) add(r.dir, { ids: [...new Set([...(entries.get(r.dir)?.ids || []), ...r.ids])], recent: r.recent || entries.get(r.dir)?.recent || false });
+  if (dir) add(dir, { ids: [...new Set([...(entries.get(dir)?.ids || []), ...(state?.remotes || []).map(r => (r.identity || '').toLowerCase()).filter(Boolean)])] });
   return [...entries.values()];
 }
 function cloudEntries() {
@@ -149,7 +149,7 @@ function renderRepos() {
   for (const l of locals) for (const id of l.ids) if (!localByIdentity.has(id)) localByIdentity.set(id, l);
   const cloudByIdentity = new Map(clouds.map(c => [c.identity, c]));
   const recentOrder = config.repositories || [];
-  const rank = l => l.dir === dir ? -1 : l.recent ? recentOrder.findIndex(p => p.toLowerCase() === l.dir.toLowerCase()) : 1000;
+  const rank = l => l.dir === dir ? -1 : l.recent ? recentOrder.findIndex(p => p === l.dir) : 1000;
   const localShown = repoScope === 'cloud' ? [] : locals.map(l => ({ ...l, cloud: l.ids.map(id => cloudByIdentity.get(id)).find(Boolean), remote: l.ids.find(id => id.startsWith('github.com/')) || l.ids[0] }))
     .filter(l => matches(tokens, baseName(l.dir), l.dir, l.remote || '', l.cloud?.description || ''))
     .sort((a, b) => rank(a) - rank(b) || baseName(a.dir).localeCompare(baseName(b.dir)));

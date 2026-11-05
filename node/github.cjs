@@ -50,12 +50,13 @@ async function listAccounts() {
     accounts = parseStatusText(text);
   }
   accounts = accounts.filter(a => LOGIN.test(a.login));
-  const [pushHelper, helper, name, email] = await Promise.all([gitConfig(['--global', '--get-all', 'credential.https://github.com.helper']), gitConfig(['--get-all', 'credential.helper']), gitConfig(['--global', 'user.name']), gitConfig(['--global', 'user.email'])]);
+  const [pushHelper, helper, name, email] = await Promise.all([gitConfig(['--global', '--get-all', 'credential.https://github.com.helper']), gitConfig(['--global', '--get-all', 'credential.helper']), gitConfig(['--global', 'user.name']), gitConfig(['--global', 'user.email'])]);
   const followsGh = /gh(\.exe)?["']?\s+auth\s+git-credential/.test(pushHelper);
   const generic = helper.split(/\r?\n/).filter(Boolean).pop() || '';
   return {
     host: HOST, accounts, active: accounts.find(a => a.active)?.login || null,
-    gitPush: { followsActive: followsGh, helper: followsGh ? 'gh' : /manager/.test(generic) ? 'manager' : generic ? 'other' : 'none', label: followsGh ? 'GitHub CLI（跟随当前账号）' : /manager/.test(generic) ? 'Git Credential Manager' : generic ? '其他凭据工具：' + generic.slice(0, 80) : '未配置凭据工具' },
+    // Global configuration does not verify any repository's transport or account.
+    gitPush: { followsActive: null, globalHttpsUsesGh: followsGh, scope: 'global-https', note: '未核实当前仓库的推送账号；SSH 密钥、仓库级配置、其他凭据工具和环境变量可能改变实际账号。', helper: followsGh ? 'gh' : /manager/.test(generic) ? 'manager' : generic ? 'other' : 'none', label: followsGh ? 'GitHub CLI（全局 HTTPS 配置）' : /manager/.test(generic) ? 'Git Credential Manager' : generic ? '其他凭据工具：' + generic.slice(0, 80) : '未配置凭据工具' },
     identity: { name: name || null, email: email || null }
   };
 }
@@ -123,7 +124,7 @@ async function clone(params, notify = () => {}) {
   } catch (e) {
     throw new Error(e.code === 'ENOENT' ? ghError(e) : e.killed ? '克隆超过 14 分钟，已停止；请检查网络后重试。' : /not found|could not read|403|401/i.test(String(e.stderr)) ? '这个账号无权访问该仓库，或仓库已不存在。' : '克隆失败，请检查网络和目标文件夹后重试。');
   } finally { clearInterval(heartbeat); }
-  return { dir: target, fullName };
+  return { dir: slash(target), fullName };
 }
 let loginChild = null;
 async function login(notify = () => {}) {
