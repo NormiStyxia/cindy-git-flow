@@ -134,6 +134,29 @@ test('对话切换期间旧读取被拒绝，缺少项目或明确远程路径�
  }
  assert.equal(h.calls.length,1);
 });
+test('同项目切换对话复用在途读取，同时保留最新对话身份',async()=>{
+ let finish;const h=host(false,null,()=>new Promise(resolve=>finish=resolve));
+ await h.listener({type:'event',name:'did-session-switched',data:{sessionId:'a',workdir:'/repo-a/src'}});
+ h.request('loading','session/connect',{revision:1});await new Promise(r=>setTimeout(r,10));
+ await h.listener({type:'event',name:'did-session-switched',data:{sessionId:'b',workdir:'/repo-a/src/'}});
+ finish({ok:true,result:{dir:'/repo-a'}});assert.equal((await h.result('loading')).result.dir,'/repo-a');
+ h.request('current','session/current');assert.equal((await h.result('current')).result.sessionId,'b');
+ assert.equal(h.calls.length,1);assert.equal(h.config.lastDir,undefined);
+});
+test('在途读取期间切到另一个项目，不能把旧项目结果当成当前结果',async()=>{
+ let finish;const h=host(false,null,()=>new Promise(resolve=>finish=resolve));
+ await h.listener({type:'event',name:'did-session-switched',data:{sessionId:'a',workdir:'/repo-a'}});
+ h.request('loading','session/connect',{revision:1});await new Promise(r=>setTimeout(r,10));
+ await h.listener({type:'event',name:'did-session-switched',data:{sessionId:'b',workdir:'/repo-b'}});
+ finish({ok:true,result:{dir:'/repo-a'}});assert((await h.result('loading')).error.includes('对话已切换'));
+});
+test('自动同步折叠开关只接受布尔值，并保留其他设置',async()=>{
+ const h=host();h.request('off','config/update',{foldAuto:false});await h.result('off');
+ assert.equal(h.config.foldAuto,false);assert.equal(h.config.teamRepos['/repo-a'].enabled,false);
+ h.request('invalid','config/update',{foldAuto:'false'});assert((await h.result('invalid')).error);
+ assert.equal(h.config.foldAuto,false);
+ h.request('on','config/update',{foldAuto:true});await h.result('on');assert.equal(h.config.foldAuto,true);
+});
 test('事件丢失时清空焦点，后续通知重新建立跟随；手动面板连接不抢其他面板',async()=>{
  const h=host();
  await h.listener({type:'event',name:'did-session-switched',data:{sessionId:'a',workdir:'/repo-a'}});

@@ -5,8 +5,8 @@
   "name": "Git 流线",
   "description": "在对话左侧查看本地仓库、流动分支图、最新提交和队友状态；管理 GitHub 账号，搜索并克隆云端仓库",
   "whenToUse": "在对话左侧查看本地仓库、流动分支图、最新提交和队友状态；查看或切换本机 GitHub 账号，列出云端仓库",
-  "version": "1.8.0",
-  "releaseNotes": "新增 GitHub 账号管理：查看、切换、添加本机 GitHub CLI 账号，可让 github.com 的 Git 推送跟随当前账号，并可设置全局提交作者。仓库切换改为铺满面板的大弹窗，支持搜索、按本机/云端筛选，列出账号的云端仓库并一键克隆，可扫描文件夹批量找到本机仓库。新增 git_accounts、git_account_switch、git_cloud_repos 工具。最近仓库记录由 12 个增加到 30 个。",
+  "version": "1.9.0",
+  "releaseNotes": "新增 GitHub 账号管理：查看、切换、添加本机 GitHub CLI 账号，可让 github.com 的 Git 推送跟随当前账号，并可设置全局提交作者。仓库切换改为铺满面板的大弹窗，支持搜索、按本机/云端筛选，列出账号的云端仓库并一键克隆，可扫描文件夹批量找到本机仓库。新增 git_accounts、git_account_switch、git_cloud_repos 工具。最近仓库记录由 12 个增加到 30 个。同时合入 1.8.1、1.8.2 的自动同步快照折叠与同项目面板复用修复。",
   "entry": "main.js",
   "icon": "assets/icon.png",
   "tools": [
