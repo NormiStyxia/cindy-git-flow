@@ -13,7 +13,7 @@ window.GitBridge = (() => {
     return new Promise((resolve, reject) => {
       const id = crypto.randomUUID(); const message = { type: 'request', id, method, params };
       const repeat = setInterval(() => channel.postMessage(message), 800);
-      const timeout = setTimeout(() => { clearInterval(repeat); pending.delete(id); reject(new Error('插件响应超时，请点击刷新重试。')); }, method === 'repo/fetch' ? 915000 : method === 'text/translate' ? 90000 : 45000);
+      const timeout = setTimeout(() => { clearInterval(repeat); pending.delete(id); reject(new Error('插件响应超时，请点击刷新重试。')); }, ({ 'repo/fetch': 915000, 'cloud/clone': 1800000, 'account/login': 915000, 'local/scan': 600000, 'repo/pick': 600000, 'cloud/list': 120000, 'local/list': 120000, 'text/translate': 90000 })[method] || 45000);
       pending.set(id, { resolve, reject, repeat, timeout }); channel.postMessage(message);
     });
   }

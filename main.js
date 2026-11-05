@@ -126,18 +126,96 @@ function translateSubjects(params, callId) {
   translationQueue = work;
   return work;
 }
+const longRunning = new Set(['repo/fetch', 'cloud/clone', 'account/login']);
 async function node(method, params, callId) {
-  const r = await cindy.node.request({ method, params, ...(callId ? { callId, cancelWithCall: true } : {}), ...(method === 'repo/fetch' ? { timeoutMs: 90000, maxTotalMs: 900000 } : { timeoutMs: 35000 }) });
+  const r = await cindy.node.request({ method, params, ...(callId ? { callId, cancelWithCall: true } : {}), ...(longRunning.has(method) ? { timeoutMs: 90000, maxTotalMs: 900000 } : { timeoutMs: method === 'cloud/list' ? 110000 : 35000 }) });
   if (!r.ok) throw new Error(r.message || '读取失败，请稍后刷新。');
   return r.result;
 }
+function remoteIds(state) { return [...new Set((state.remotes || []).map(r => r.identity).filter(Boolean).map(id => id.toLowerCase()))].slice(0, 4); }
 async function connect(dir, callId, sessionId) {
   const state = await node('repo/snapshot', { dir }, callId);
-  await updateConfig(cfg => ({ lastDir: state.dir, repositories: [state.dir, ...(cfg.repositories || []).filter(p => p !== state.dir)].slice(0, 12), ...(cfg.repositoryLock?.dir ? { repositoryLock: { dir: state.dir } } : {}) }));
+  await updateConfig(cfg => {
+    const repositories = [state.dir, ...(cfg.repositories || []).filter(p => p !== state.dir)].slice(0, 30);
+    // Remember remote identities so cloud repositories can be matched to these local clones.
+    const known = cfg.repoRemotes && typeof cfg.repoRemotes === 'object' ? cfg.repoRemotes : {};
+    const repoRemotes = Object.fromEntries(repositories.map(p => [p, p === state.dir ? remoteIds(state) : known[p]]).filter(([, ids]) => Array.isArray(ids)));
+    return { lastDir: state.dir, repositories, repoRemotes, ...(cfg.repositoryLock?.dir ? { repositoryLock: { dir: state.dir } } : {}) };
+  });
   if (callId) channel.postMessage({ type: 'repo-connected', dir: state.dir, sessionId });
   return state;
 }
+// GitHub 账号、云端仓库和本机扫描结果只缓存在常驻逻辑的内存里，凭据始终留在 gh。
+const cloudCache = new Map(), scanCache = new Map();
+const validLogin = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/.test(value);
+const sameDir = (a, b) => a.replaceAll('\\', '/').toLowerCase() === b.replaceAll('\\', '/').toLowerCase();
+async function pickFolder(title) {
+  const r = await cindy.pick({ mode: 'directory', title });
+  if (r.ok) return r.path;
+  if (r.errorCode === 'CANCELLED' || r.code === 'CANCELLED') return null;
+  throw new Error(r.message || '未选择文件夹。');
+}
+async function cloudList(params, callId) {
+  if (!validLogin(params.login)) throw new Error('请选择有效的 GitHub 账号。');
+  const cached = cloudCache.get(params.login);
+  if (cached && !params.refresh && Date.now() - cached.at < 10 * 60000) return cached.result;
+  const result = await node('cloud/list', { login: params.login }, callId);
+  cloudCache.set(params.login, { at: Date.now(), result });
+  return result;
+}
+async function scanRoot(root, refresh = false) {
+  const cached = scanCache.get(root);
+  if (cached && !refresh && Date.now() - cached.at < 2 * 60000) return cached.result;
+  const result = await node('local/scan', { root });
+  scanCache.set(root, { at: Date.now(), result });
+  return result;
+}
+async function localList(refresh = false) {
+  const cfg = await readConfig(), roots = Array.isArray(cfg.scanRoots) ? cfg.scanRoots : [], known = cfg.repoRemotes || {};
+  const entries = [];
+  for (const dir of cfg.repositories || []) entries.push({ dir, ids: Array.isArray(known[dir]) ? known[dir] : [], recent: true, roots: [] });
+  const failures = [];
+  for (const root of roots) {
+    try {
+      for (const repo of (await scanRoot(root, refresh)).repos) {
+        let entry = entries.find(item => sameDir(item.dir, repo.dir));
+        if (!entry) { entry = { dir: repo.dir, ids: [], recent: false, roots: [] }; entries.push(entry); }
+        entry.ids = [...new Set([...entry.ids, ...repo.ids])]; entry.roots.push(root);
+      }
+    } catch (e) { failures.push({ root, message: e.message }); }
+  }
+  return { repos: entries, roots, failures };
+}
 async function action(method, params = {}, callId) {
+  if (['account/list', 'account/login-cancel'].includes(method)) return node(method, {}, callId);
+  if (['account/switch', 'account/setup-git', 'account/identity', 'account/login'].includes(method)) {
+    const result = await node(method, ['account/switch', 'account/identity'].includes(method) ? { login: params.login } : {}, callId);
+    channel.postMessage({ type: 'accounts-changed' });
+    return result;
+  }
+  if (method === 'cloud/list') return cloudList(params, callId);
+  if (method === 'local/list') return localList(params.refresh === true);
+  if (method === 'local/scan') {
+    const root = await pickFolder('选择要查找 Git 仓库的文件夹');
+    if (!root) return null;
+    const result = await scanRoot(root, true);
+    await updateConfig(cfg => ({ scanRoots: [result.root, ...(cfg.scanRoots || []).filter(p => !sameDir(p, result.root))].slice(0, 8) }));
+    scanCache.set(result.root, scanCache.get(root));
+    return localList();
+  }
+  if (method === 'local/remove-root') {
+    await updateConfig(cfg => ({ scanRoots: (cfg.scanRoots || []).filter(p => p !== params.root) }));
+    scanCache.delete(params.root);
+    return localList();
+  }
+  if (method === 'cloud/clone') {
+    if (!validLogin(params.login) || typeof params.fullName !== 'string') throw new Error('请选择要克隆的云端仓库。');
+    const parent = await pickFolder('选择把 ' + params.fullName + ' 克隆到哪个文件夹');
+    if (!parent) return null;
+    const cloned = await node('cloud/clone', { login: params.login, fullName: params.fullName, parent }, callId);
+    for (const root of [...scanCache.keys()]) if (cloned.dir.replaceAll('\\', '/').toLowerCase().startsWith(root.toLowerCase())) scanCache.delete(root);
+    return connect(cloned.dir, callId);
+  }
   if (method === 'usage/read') return usageSnapshot((await readConfig()).usage);
   if (method === 'session/current') return sessionFocus;
   if (method === 'session/connect') {
@@ -238,8 +316,8 @@ cindy.onHostMessage(async msg => {
     channel.postMessage({ type: 'session-focus', focus: sessionFocus, revision: focusRevision });
     return;
   }
-  if (msg.type === 'event' && msg.name === 'node-notification' && msg.method === 'fetch-progress') {
-    channel.postMessage({ type: 'fetch-progress', ...msg.params });
+  if (msg.type === 'event' && msg.name === 'node-notification' && ['fetch-progress', 'clone-progress', 'auth-progress'].includes(msg.method)) {
+    channel.postMessage({ ...msg.params, type: msg.method });
     return;
   }
   if (msg.type !== 'tool-call') return;
@@ -247,6 +325,20 @@ cindy.onHostMessage(async msg => {
     const p = msg.args || {}; const ctx = p.session_context;
     if (msg.tool === 'git_translate') {
       const result = await action('text/translate', p, msg.callId);
+      await cindy.send({ type: 'tool-result', callId: msg.callId, ok: true, result });
+      return;
+    }
+    if (['git_accounts', 'git_account_switch', 'git_cloud_repos'].includes(msg.tool)) {
+      let result;
+      if (msg.tool === 'git_accounts') result = await action('account/list', {}, msg.callId);
+      if (msg.tool === 'git_account_switch') result = await action('account/switch', { login: p.login }, msg.callId);
+      if (msg.tool === 'git_cloud_repos') {
+        const login = p.login || (await action('account/list', {}, msg.callId)).active;
+        const listed = await action('cloud/list', { login, refresh: p.refresh === true }, msg.callId);
+        const query = typeof p.query === 'string' ? p.query.trim().toLowerCase() : '';
+        const repos = listed.repos.filter(r => !query || (r.fullName + ' ' + r.description).toLowerCase().includes(query));
+        result = { login, total: listed.repos.length, matched: repos.length, repos: repos.slice(0, 100).map(({ identity, ...r }) => r), fetchedAt: listed.fetchedAt };
+      }
       await cindy.send({ type: 'tool-result', callId: msg.callId, ok: true, result });
       return;
     }

@@ -9,6 +9,6 @@ readline.createInterface({ input: process.stdin }).on('line', async line => {
   let request;
   try { request = JSON.parse(line); } catch { reply({ jsonrpc: '2.0', id: null, error: { code: -32700, message: '无效请求' } }); return; }
   if (request.id === undefined) return;
-  try { reply({ jsonrpc: '2.0', id: request.id, result: await handle(request.method, request.params || {}, request.cindy?.secrets || {}, params => reply({ jsonrpc: '2.0', method: 'fetch-progress', params })) }); }
+  try { reply({ jsonrpc: '2.0', id: request.id, result: await handle(request.method, request.params || {}, request.cindy?.secrets || {}, (params, method = 'fetch-progress') => reply({ jsonrpc: '2.0', method, params })) }); }
   catch (e) { reply({ jsonrpc: '2.0', id: request.id, error: { code: -32000, message: e.message } }); }
 });
