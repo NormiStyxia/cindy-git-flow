@@ -1,0 +1,114 @@
+{
+  "name": "Git Flow",
+  "description": "See local repositories, flowing branch graphs, latest commits and teammate status beside the conversation; manage GitHub accounts and clone cloud repositories.",
+  "whenToUse": "Look at the local repository, flowing branch graph, latest commits and teammate status to the left of the conversation; view or switch the local GitHub account and list cloud repositories.",
+  "panel": {
+    "title": "Git Flow"
+  },
+  "tools": {
+    "git_open": {
+      "description": "Connect a local Git repository and show it in the left-hand Git Flow panel, returning the real branches, commit graph and workspace status.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Absolute path to a local repository; omit to use the current session’s working directory."
+        }
+      }
+    },
+    "git_status": {
+      "description": "Read-only view of a local Git repository: the latest 180 commits, local and cached remote branches, and worktrees on this machine. A cached remote does not prove it is online.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Absolute path to a local repository; omit to use the current session’s working directory."
+        }
+      }
+    },
+    "git_commit": {
+      "description": "Show one commit’s details and patch.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Absolute path to a local repository; omit to use the current session’s working directory."
+        },
+        "/properties/ref": {
+          "description": "Commit hash or branch reference."
+        }
+      }
+    },
+    "git_compare": {
+      "description": "Preview the commit gap, fast-forward relationship and file differences between HEAD and a target branch; does not switch branches, merge or predict conflicts.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Absolute path to a local repository; omit to use the current session’s working directory."
+        },
+        "/properties/target": {
+          "description": "Target branch, remote reference or commit hash."
+        }
+      }
+    },
+    "git_fetch": {
+      "description": "Fetch the latest references from an existing remote; does not merge, change working files or prune.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Absolute path to a local repository; omit to use the current session’s working directory."
+        },
+        "/properties/remote": {
+          "description": "An existing remote name, for example origin."
+        }
+      }
+    },
+    "git_team": {
+      "description": "Sync teammate status for the current repository; requires a team service connected in settings and sharing enabled for that repository. Reports only nickname, branch, commit subject and change counts.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Absolute path to a local repository; omit to use the current session’s working directory."
+        }
+      }
+    },
+    "git_accounts": {
+      "description": "Read-only list of the accounts signed in to GitHub CLI on this machine, the active account, the global HTTPS credential configuration for github.com and the global commit author. Returns no tokens and does not confirm which account the current repository pushes with."
+    },
+    "git_account_switch": {
+      "description": "Switch the active GitHub CLI account to another signed-in account. gitPush in the result only describes the global HTTPS credential configuration; it does not confirm which account the current repository pushes with, because SSH, repository-level configuration and environment variables can make pushes use another account.",
+      "parameters": {
+        "/properties/login": {
+          "description": "A signed-in GitHub username."
+        }
+      }
+    },
+    "git_cloud_repos": {
+      "description": "List the cloud repositories a signed-in GitHub account can access (own, collaborator and organisation), filterable by keyword, up to 100. Read-only; does not clone.",
+      "parameters": {
+        "/properties/login": {
+          "description": "A signed-in GitHub username; omit for the current account."
+        },
+        "/properties/query": {
+          "description": "Keyword matched against a repository’s full name or description."
+        },
+        "/properties/refresh": {
+          "description": "Ignore the 10-minute cache and read again."
+        }
+      }
+    },
+    "git_usage": {
+      "description": "Read the model usage Git Flow records in the background: plugin translation calls, characters and estimated tokens, plus the real conversation turn tokens the host provides. Not shown in the panel."
+    },
+    "git_translate": {
+      "description": "Translate commit subjects into Simplified Chinese and cache them; handles only the supplied subjects, reads no code and never modifies Git records. Uses Cindy’s lightweight task model.",
+      "parameters": {
+        "/properties/subjects": {
+          "description": "Raw commit subjects, at most 16,000 characters in total."
+        },
+        "/properties/retry": {
+          "description": "Retry after a failed translation once its cause has been handled."
+        }
+      }
+    }
+  },
+  "node": {
+    "secretBindings": {
+      "team_token": {
+        "label": "Team access token",
+        "hint": "Provided by the team Git Flow service administrator; used only for teammate status sync."
+      }
+    }
+  }
+}

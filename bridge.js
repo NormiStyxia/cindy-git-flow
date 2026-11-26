@@ -1,4 +1,6 @@
 'use strict';
+// bridge.js loads before i18n.js, so translations are looked up at call time.
+function localize(key) { return window.GitI18n ? window.GitI18n.t(key) : key; }
 window.GitBridge = (() => {
   const channel = new BroadcastChannel('git-flow-v1'); const pending = new Map(); const listeners = new Set();
   channel.onmessage = ({ data: m }) => {
@@ -9,11 +11,11 @@ window.GitBridge = (() => {
     } else { for (const listener of listeners) listener(m); }
   };
   async function request(method, params = {}) {
-    const wake = await fetch('/wake'); if (!wake.ok) throw new Error('插件未能唤醒，请在插件页确认已启用。');
+    const wake = await fetch('/wake'); if (!wake.ok) throw new Error(localize('插件未能唤醒，请在插件页确认已启用。'));
     return new Promise((resolve, reject) => {
       const id = crypto.randomUUID(); const message = { type: 'request', id, method, params };
       const repeat = setInterval(() => channel.postMessage(message), 800);
-      const timeout = setTimeout(() => { clearInterval(repeat); pending.delete(id); reject(new Error('插件响应超时，请点击刷新重试。')); }, ({ 'repo/fetch': 915000, 'cloud/clone': 1800000, 'account/login': 915000, 'local/scan': 600000, 'repo/pick': 600000, 'cloud/list': 120000, 'local/list': 120000, 'text/translate': 90000 })[method] || 45000);
+      const timeout = setTimeout(() => { clearInterval(repeat); pending.delete(id); reject(new Error(localize('插件响应超时，请点击刷新重试。'))); }, ({ 'repo/fetch': 915000, 'cloud/clone': 1800000, 'account/login': 915000, 'local/scan': 600000, 'repo/pick': 600000, 'cloud/list': 120000, 'local/list': 120000, 'text/translate': 90000 })[method] || 45000);
       pending.set(id, { resolve, reject, repeat, timeout }); channel.postMessage(message);
     });
   }

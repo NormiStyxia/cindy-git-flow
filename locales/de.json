@@ -1,0 +1,114 @@
+{
+  "name": "Git Flow",
+  "description": "Lokale Repositories, fließende Branch-Diagramme, neueste Commits und den Status Ihrer Teamkollegen neben dem Dialog sehen; GitHub-Konten verwalten und Cloud-Repositories klonen.",
+  "whenToUse": "Sehen Sie sich links neben dem Dialog das lokale Repository, das fließende Branch-Diagramm, die neuesten Commits und den Status Ihrer Teamkollegen an; zeigen oder wechseln Sie das lokale GitHub-Konto und listen Sie Cloud-Repositories auf.",
+  "panel": {
+    "title": "Git Flow"
+  },
+  "tools": {
+    "git_open": {
+      "description": "Verbindet ein lokales Git-Repository und zeigt es im Git-Flow-Panel links an; liefert die echten Branches, das Commit-Diagramm und den Status des Arbeitsverzeichnisses.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Absoluter Pfad zu einem lokalen Repository; weglassen, um das Arbeitsverzeichnis der aktuellen Sitzung zu verwenden."
+        }
+      }
+    },
+    "git_status": {
+      "description": "Nur-Lese-Ansicht eines lokalen Git-Repositorys: die letzten 180 Commits, lokale und zwischengespeicherte Remote-Branches sowie Arbeitsverzeichnisse auf diesem Rechner. Ein zwischengespeichertes Remote belegt nicht, dass es online ist.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Absoluter Pfad zu einem lokalen Repository; weglassen, um das Arbeitsverzeichnis der aktuellen Sitzung zu verwenden."
+        }
+      }
+    },
+    "git_commit": {
+      "description": "Details und Patch eines einzelnen Commits anzeigen.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Absoluter Pfad zu einem lokalen Repository; weglassen, um das Arbeitsverzeichnis der aktuellen Sitzung zu verwenden."
+        },
+        "/properties/ref": {
+          "description": "Commit-Hash oder Branch-Referenz."
+        }
+      }
+    },
+    "git_compare": {
+      "description": "Zeigt den Commit-Abstand, die Fast-Forward-Beziehung und die Dateiunterschiede zwischen HEAD und einem Ziel-Branch; wechselt keine Branches, mergt nicht und sagt keine Konflikte voraus.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Absoluter Pfad zu einem lokalen Repository; weglassen, um das Arbeitsverzeichnis der aktuellen Sitzung zu verwenden."
+        },
+        "/properties/target": {
+          "description": "Ziel-Branch, Remote-Referenz oder Commit-Hash."
+        }
+      }
+    },
+    "git_fetch": {
+      "description": "Ruft die neuesten Referenzen von einem vorhandenen Remote ab; mergt nicht, verändert keine Arbeitsdateien und räumt nicht auf.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Absoluter Pfad zu einem lokalen Repository; weglassen, um das Arbeitsverzeichnis der aktuellen Sitzung zu verwenden."
+        },
+        "/properties/remote": {
+          "description": "Ein vorhandener Remote-Name, zum Beispiel origin."
+        }
+      }
+    },
+    "git_team": {
+      "description": "Synchronisiert den Status der Teamkollegen für das aktuelle Repository; erfordert einen in den Einstellungen angebundenen Team-Dienst und aktivierte Freigabe für dieses Repository. Gemeldet werden nur Spitzname, Branch, Commit-Titel und Änderungszahlen.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Absoluter Pfad zu einem lokalen Repository; weglassen, um das Arbeitsverzeichnis der aktuellen Sitzung zu verwenden."
+        }
+      }
+    },
+    "git_accounts": {
+      "description": "Nur-Lese-Liste der auf diesem Rechner bei der GitHub CLI angemeldeten Konten, des aktiven Kontos, der globalen HTTPS-Zugangsdaten für github.com und des globalen Commit-Autors. Liefert keine Tokens und bestätigt nicht, mit welchem Konto das aktuelle Repository pusht."
+    },
+    "git_account_switch": {
+      "description": "Wechselt das aktive GitHub-CLI-Konto zu einem anderen angemeldeten Konto. gitPush im Ergebnis beschreibt nur die globalen HTTPS-Zugangsdaten; es bestätigt nicht, mit welchem Konto das aktuelle Repository pusht, weil SSH, Konfiguration auf Repository-Ebene und Umgebungsvariablen das Pushen über ein anderes Konto laufen lassen können.",
+      "parameters": {
+        "/properties/login": {
+          "description": "Ein angemeldeter GitHub-Benutzername."
+        }
+      }
+    },
+    "git_cloud_repos": {
+      "description": "Listet die Cloud-Repositories auf, auf die ein angemeldetes GitHub-Konto Zugriff hat (eigene, als Mitarbeiter und von Organisationen), nach Stichwort filterbar, bis zu 100. Nur lesend; klont nicht.",
+      "parameters": {
+        "/properties/login": {
+          "description": "Ein angemeldeter GitHub-Benutzername; weglassen für das aktuelle Konto."
+        },
+        "/properties/query": {
+          "description": "Stichwort, das gegen den vollständigen Namen oder die Beschreibung eines Repositorys abgeglichen wird."
+        },
+        "/properties/refresh": {
+          "description": "Den 10-Minuten-Cache ignorieren und erneut lesen."
+        }
+      }
+    },
+    "git_usage": {
+      "description": "Liest die Modellnutzung, die Git Flow im Hintergrund erfasst: Übersetzungsaufrufe der Erweiterung, Zeichen und geschätzte Tokens sowie die echten Token der Dialogzüge, die der Host liefert. Wird im Panel nicht angezeigt."
+    },
+    "git_translate": {
+      "description": "Übersetzt Commit-Titel ins vereinfachte Chinesische und legt sie im Cache ab; verarbeitet nur die übergebenen Titel, liest keinen Code und verändert nie Git-Einträge. Nutzt das schlanke Aufgabenmodell von Cindy.",
+      "parameters": {
+        "/properties/subjects": {
+          "description": "Rohe Commit-Titel, insgesamt höchstens 16.000 Zeichen."
+        },
+        "/properties/retry": {
+          "description": "Erneut versuchen, nachdem die Ursache einer fehlgeschlagenen Übersetzung behoben wurde."
+        }
+      }
+    }
+  },
+  "node": {
+    "secretBindings": {
+      "team_token": {
+        "label": "Team-Zugriffstoken",
+        "hint": "Wird vom Administrator des Git-Flow-Team-Dienstes bereitgestellt; dient nur der Synchronisierung des Teamstatus."
+      }
+    }
+  }
+}

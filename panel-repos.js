@@ -1,4 +1,12 @@
 'use strict';
+// Interface strings come from the host language, never a plugin preference.
+// A function declaration (not a const) keeps every panel script loadable on its
+// own: the classic scripts share one global scope, so two const bindings of the
+// same name would abort the second script.
+function t(key, vars) {
+  const i18n = typeof window !== 'undefined' ? window.GitI18n : null;
+  return i18n ? i18n.t(key, vars) : key;
+}
 // 仓库切换大弹窗与 GitHub 账号管理。与 panel.js 共用全局状态（dir、config、connect、rpc）。
 let accounts = null, accountsError = '', accountBusy = false, accountNotice = '', loginState = null;
 let repoScope = 'all', cloudLogin = null, localData = null, localError = '', localLoading = false, cloneState = null;
@@ -22,7 +30,7 @@ function renderAccountButton() {
   const active = accounts?.active, button = $('#account-toggle');
   button.querySelector('.avatar-mini').innerHTML = active ? escapeHtml(avatarLetter(active)) : icon('user');
   button.classList.toggle('signed-in', !!active);
-  const label = accountsError ? 'GitHub 账号读取失败 · 点击查看' : active ? 'GitHub 当前账号：' + active + ' · 点击管理或切换' : accounts ? '尚未登录 GitHub 账号 · 点击添加' : 'GitHub 账号';
+  const label = accountsError ? t('GitHub 账号读取失败 · 点击查看') : active ? t('GitHub 当前账号：') + active + t(' · 点击管理或切换') : accounts ? t('尚未登录 GitHub 账号 · 点击添加') : t('GitHub 账号');
   button.title = label; button.setAttribute('aria-label', label);
 }
 async function loadAccounts() {
@@ -37,25 +45,25 @@ function renderAccounts() {
   $('#account-error').textContent = accountsError; $('#account-error').hidden = !accountsError;
   $('#account-notice').textContent = accountNotice; $('#account-notice').hidden = !accountNotice;
   const body = $('#account-body');
-  if (!accounts) { body.innerHTML = accountsError ? '' : '<p class="empty">正在读取本机 GitHub 账号…</p>'; return; }
+  if (!accounts) { body.innerHTML = accountsError ? '' : '<p ' + 'class="' + 'empty' + '"' + '>' + t('正在读取本机 GitHub 账号…') + '</p>'; return; }
   const list = accounts.accounts, push = accounts.gitPush, who = accounts.identity;
-  let html = '<div class="section-label">已登录的账号<span>' + list.length + ' 个 · github.com</span></div>';
-  if (!list.length) html += '<p class="empty">这台电脑还没有登录 GitHub 账号。</p>';
+  let html = '<div ' + 'class="' + 'section-label' + '"' + '>' + t('已登录的账号') + '<span>' + list.length + t(' 个 · github.com') + '</span>' + '</div>';
+  if (!list.length) html += '<p ' + 'class="' + 'empty' + '"' + '>' + t('这台电脑还没有登录 GitHub 账号。') + '</p>';
   for (const a of list) {
-    html += '<div class="account-row' + (a.active ? ' active' : '') + '"><span class="avatar">' + escapeHtml(avatarLetter(a.login)) + '</span><div class="account-main"><div class="account-name">' + escapeHtml(a.login) + (a.active ? '<span class="badge good">当前账号</span>' : '') + (a.state === 'error' ? '<span class="badge warn">登录已失效</span>' : '') + '</div><div class="account-meta">' + (a.state === 'error' ? '请重新添加这个账号' : '权限：' + escapeHtml(a.scopes || '未知')) + '</div></div><div class="account-actions">' +
-      (a.active || a.state === 'error' ? '' : '<button class="text-button" data-account-switch="' + escapeHtml(a.login) + '"' + (accountBusy ? ' disabled' : '') + '>切换到此账号</button>') +
-      (a.state === 'error' ? '' : '<button class="text-button subtle" data-account-identity="' + escapeHtml(a.login) + '" title="把全局 user.name / user.email 设为这个账号的 GitHub 名称与隐私邮箱"' + (accountBusy ? ' disabled' : '') + '>设为提交作者</button>') + '</div></div>';
+    html += '<div class="account-row' + (a.active ? ' active' : '') + '"><span class="avatar">' + escapeHtml(avatarLetter(a.login)) + '</span><div class="account-main"><div class="account-name">' + escapeHtml(a.login) + (a.active ? '<span ' + 'class="' + 'badge good' + '"' + '>' + t('当前账号') + '</span>' : '') + (a.state === 'error' ? '<span ' + 'class="' + 'badge warn' + '"' + '>' + t('登录已失效') + '</span>' : '') + '</div><div class="account-meta">' + (a.state === 'error' ? t('请重新添加这个账号') : t('权限：') + escapeHtml(a.scopes || t('未知'))) + '</div></div><div class="account-actions">' +
+      (a.active || a.state === 'error' ? '' : '<button class="text-button" data-account-switch="' + escapeHtml(a.login) + '"' + (accountBusy ? ' disabled' : '') + '>' + t('切换到此账号') + '</button>') +
+      (a.state === 'error' ? '' : '<button class="text-button subtle" data-account-identity="' + escapeHtml(a.login) + '" ' + 'title="' + t('把全局 user.name / user.email 设为这个账号的 GitHub 名称与隐私邮箱') + '"' + (accountBusy ? ' disabled' : '') + '>' + t('设为提交作者') + '</button>') + '</div></div>';
   }
-  html += '<div class="section-label">Git 推送凭据配置<span>全局 · HTTPS</span></div><div class="account-card">';
-  if (push.globalHttpsUsesGh) html += '<p><b class="good-text">✓ 全局 HTTPS 已配置 GitHub CLI</b></p><p class="small">使用这项配置的 github.com HTTPS 仓库会通过 gh 获取凭据。SSH 远端使用 SSH 密钥，不受这里的账号切换影响；仓库级配置、其他凭据工具或环境变量也可能改变实际使用的账号。这里未核实当前仓库的推送账号。</p>';
-  else html += '<p>全局凭据配置：<b>' + escapeHtml(push.label) + '</b>。</p><p class="small">切换账号不会修改 SSH 密钥或其他凭据工具。点击下方按钮会运行 <span class="mono">gh auth setup-git</span>，将 github.com 的全局 HTTPS 凭据配置为 GitHub CLI；仓库级配置仍可能覆盖它。这里未核实当前仓库的推送账号。</p><button class="text-button" data-account-action="setup-git"' + (accountBusy ? ' disabled' : '') + '>为 HTTPS 配置 GitHub CLI 凭据</button>';
-  html += '</div><div class="section-label">提交作者（全局）<span>写进提交记录</span></div><div class="account-card">' +
-    (who.name || who.email ? '<p>' + escapeHtml(who.name || '未设置姓名') + ' <span class="muted mono">&lt;' + escapeHtml(who.email || '未设置邮箱') + '&gt;</span></p>' : '<p>未设置全局提交作者，仓库可能使用各自的本地配置。</p>') +
-    '<p class="small">提交作者只是名字和邮箱，与推送使用哪个账号无关；仓库内的本地配置会优先于这里。</p></div>';
-  html += '<div class="section-label">添加账号</div><div class="account-card">';
-  if (loginState?.code) html += '<p>在浏览器中确认登录的是要添加的账号，然后输入授权码：</p><div class="device-code mono" aria-label="授权码">' + escapeHtml(loginState.code) + '</div><p><a class="text-button" href="' + escapeHtml(loginState.url) + '">打开 GitHub 授权页 ↗</a></p><p class="small">授权完成后这里会自动刷新；已登录的账号会保留。</p><button class="text-button subtle" data-account-action="login-cancel">取消添加</button>';
-  else if (loginState) html += '<p>正在向 GitHub 申请授权码…</p><button class="text-button subtle" data-account-action="login-cancel">取消添加</button>';
-  else html += '<p class="small">通过浏览器授权添加另一个 GitHub 账号，多个账号可以同时保留。</p><button class="text-button" data-account-action="login"' + (accountBusy ? ' disabled' : '') + '>添加 GitHub 账号</button>';
+  html += '<div ' + 'class="' + 'section-label' + '"' + '>' + t('Git 推送凭据配置') + '<span>' + t('全局 · HTTPS') + '</span>' + '</div>' + '<div ' + 'class="' + 'account-card' + '"' + '>';
+  if (push.globalHttpsUsesGh) html += '<p>' + '<b ' + 'class="' + 'good-text' + '"' + '>' + t('✓ 全局 HTTPS 已配置 GitHub CLI') + '</b>' + '</p>' + '<p ' + 'class="' + 'small' + '"' + '>' + t('使用这项配置的 github.com HTTPS 仓库会通过 gh 获取凭据。SSH 远端使用 SSH 密钥，不受这里的账号切换影响；仓库级配置、其他凭据工具或环境变量也可能改变实际使用的账号。这里未核实当前仓库的推送账号。') + '</p>';
+  else html += '<p>' + t('全局凭据配置：') + '<b>' + escapeHtml(push.label) + '</b>' + '。' + '</p>' + '<p ' + 'class="' + 'small' + '"' + '>' + t('切换账号不会修改 SSH 密钥或其他凭据工具。点击下方按钮会运行 ') + '<span ' + 'class="' + 'mono' + '"' + '>' + 'gh auth setup-git' + '</span>' + t('，将 github.com 的全局 HTTPS 凭据配置为 GitHub CLI；仓库级配置仍可能覆盖它。这里未核实当前仓库的推送账号。') + '</p>' + '<button ' + 'class="' + 'text-button' + '"' + ' ' + 'data-account-action="' + 'setup-git' + '"' + (accountBusy ? ' disabled' : '') + '>' + t('为 HTTPS 配置 GitHub CLI 凭据') + '</button>';
+  html += '</div>' + '<div ' + 'class="' + 'section-label' + '"' + '>' + t('提交作者（全局）') + '<span>' + t('写进提交记录') + '</span>' + '</div>' + '<div ' + 'class="' + 'account-card' + '"' + '>' +
+    (who.name || who.email ? '<p>' + escapeHtml(who.name || t('未设置姓名')) + ' <span class="muted mono">&lt;' + escapeHtml(who.email || t('未设置邮箱')) + '&gt;</span></p>' : '<p>' + t('未设置全局提交作者，仓库可能使用各自的本地配置。') + '</p>') +
+    '<p ' + 'class="' + 'small' + '"' + '>' + t('提交作者只是名字和邮箱，与推送使用哪个账号无关；仓库内的本地配置会优先于这里。') + '</p>' + '</div>';
+  html += '<div ' + 'class="' + 'section-label' + '"' + '>' + t('添加账号') + '</div>' + '<div ' + 'class="' + 'account-card' + '"' + '>';
+  if (loginState?.code) html += '<p>' + t('在浏览器中确认登录的是要添加的账号，然后输入授权码：') + '</p>' + '<div ' + 'class="' + 'device-code mono' + '"' + ' ' + 'aria-label="' + t('授权码') + '"' + '>' + escapeHtml(loginState.code) + '</div><p><a class="text-button" href="' + escapeHtml(loginState.url) + '">' + t('打开 GitHub 授权页 ↗') + '</a>' + '</p>' + '<p ' + 'class="' + 'small' + '"' + '>' + t('授权完成后这里会自动刷新；已登录的账号会保留。') + '</p>' + '<button ' + 'class="' + 'text-button subtle' + '"' + ' ' + 'data-account-action="' + 'login-cancel' + '"' + '>' + t('取消添加') + '</button>';
+  else if (loginState) html += '<p>' + t('正在向 GitHub 申请授权码…') + '</p>' + '<button ' + 'class="' + 'text-button subtle' + '"' + ' ' + 'data-account-action="' + 'login-cancel' + '"' + '>' + t('取消添加') + '</button>';
+  else html += '<p ' + 'class="' + 'small' + '"' + '>' + t('通过浏览器授权添加另一个 GitHub 账号，多个账号可以同时保留。') + '</p>' + '<button ' + 'class="' + 'text-button' + '"' + ' ' + 'data-account-action="' + 'login' + '"' + (accountBusy ? ' disabled' : '') + '>' + t('添加 GitHub 账号') + '</button>';
   body.innerHTML = html + '</div>';
 }
 async function accountAction(run, notice) {
@@ -72,7 +80,7 @@ async function addAccount() {
     const before = new Set((accounts?.accounts || []).map(a => a.login));
     accounts = await rpc('account/login');
     const added = accounts.accounts.find(a => !before.has(a.login));
-    accountNotice = added ? '已添加账号 ' + added.login + '，并设为当前账号。' : '授权完成，账号列表已刷新。';
+    accountNotice = added ? t('已添加账号 ') + added.login + t('，并设为当前账号。') : t('授权完成，账号列表已刷新。');
     cloudLogin = accounts.active;
   } catch (e) { if (!/已取消/.test(e.message)) accountsError = e.message; }
   finally { loginState = null; renderAccountButton(); renderAccounts(); }
@@ -83,11 +91,11 @@ $('#close-account-dialog').onclick = () => showOverlay('account-dialog', false);
 $('#account-refresh').onclick = () => { accountNotice = ''; loadAccounts(); };
 $('#account-body').onclick = event => {
   const switchTo = event.target.closest('[data-account-switch]')?.dataset.accountSwitch;
-  if (switchTo) return accountAction(() => rpc('account/switch', { login: switchTo }), 'GitHub CLI 已切换到 ' + switchTo + '。实际推送账号取决于仓库的连接方式和凭据配置，详见下方说明。');
+  if (switchTo) return accountAction(() => rpc('account/switch', { login: switchTo }), t('GitHub CLI 已切换到 ') + switchTo + t('。实际推送账号取决于仓库的连接方式和凭据配置，详见下方说明。'));
   const identity = event.target.closest('[data-account-identity]')?.dataset.accountIdentity;
-  if (identity) return accountAction(() => rpc('account/identity', { login: identity }), '全局提交作者已设为 ' + identity + '（GitHub 隐私邮箱）。');
+  if (identity) return accountAction(() => rpc('account/identity', { login: identity }), t('全局提交作者已设为 ') + identity + t('（GitHub 隐私邮箱）。'));
   const action = event.target.closest('[data-account-action]')?.dataset.accountAction;
-  if (action === 'setup-git') return accountAction(() => rpc('account/setup-git'), '已为 github.com 配置全局 HTTPS 凭据；SSH 和仓库级覆盖配置仍可能使用其他账号。');
+  if (action === 'setup-git') return accountAction(() => rpc('account/setup-git'), t('已为 github.com 配置全局 HTTPS 凭据；SSH 和仓库级覆盖配置仍可能使用其他账号。'));
   if (action === 'login') return addAccount();
   if (action === 'login-cancel') rpc('account/login-cancel').catch(e => { accountsError = e.message; renderAccounts(); });
 };
@@ -97,12 +105,12 @@ function cloudLogins() { return cloudLogin === '*' ? usableAccounts().map(a => a
 function renderCloudAccount() {
   const list = usableAccounts();
   if (!cloudLogin || (cloudLogin !== '*' && !list.some(a => a.login === cloudLogin))) cloudLogin = accounts?.active || list[0]?.login || null;
-  $('#cloud-account').dataset.empty = accounts ? '未登录' : '读取中';
-  GitChoices.set($('#cloud-account'), [...list.map(a => ({ value: a.login, label: a.login, detail: a.active ? '当前账号' : '已登录' })), ...(list.length > 1 ? [{ value: '*', label: '全部账号', detail: '合并显示所有已登录账号的仓库' }] : [])], cloudLogin || '');
+  $('#cloud-account').dataset.empty = accounts ? t('未登录') : t('读取中');
+  GitChoices.set($('#cloud-account'), [...list.map(a => ({ value: a.login, label: a.login, detail: a.active ? t('当前账号') : t('已登录') })), ...(list.length > 1 ? [{ value: '*', label: t('全部账号'), detail: t('合并显示所有已登录账号的仓库') }] : [])], cloudLogin || '');
   $('#cloud-account').disabled = !list.length;
   $('#cloud-refresh').disabled = !list.length || cloudLogins().some(login => cloudLoading.has(login));
   const logins = cloudLogins(), loading = logins.filter(l => cloudLoading.has(l)), loaded = logins.map(l => cloudData.get(l)).filter(Boolean);
-  $('#cloud-status').textContent = !list.length ? (accounts ? '在账号管理中添加 GitHub 账号后显示云端仓库' : '') : loading.length ? '正在读取云端仓库…' : loaded.length ? loaded.reduce((n, d) => n + d.repos.length, 0) + ' 个 · ' + age(loaded.map(d => d.fetchedAt).sort()[0]) + '读取' : '';
+  $('#cloud-status').textContent = !list.length ? (accounts ? t('在账号管理中添加 GitHub 账号后显示云端仓库') : '') : loading.length ? t('正在读取云端仓库…') : loaded.length ? loaded.reduce((n, d) => n + d.repos.length, 0) + t(' 个 · ') + age(loaded.map(d => d.fetchedAt).sort()[0]) + t('读取') : '';
 }
 async function loadCloud(refresh = false) {
   const logins = cloudLogins().filter(l => !cloudLoading.has(l) && (refresh || !cloudData.has(l)));
@@ -157,34 +165,34 @@ function renderRepos() {
     .filter(c => (repoScope === 'cloud' || !c.local) && matches(tokens, c.fullName, c.description, c.logins.join(' ')));
   let html = '';
   if (repoScope !== 'cloud') {
-    html += '<div class="section-label">本机仓库<span>' + localShown.length + (localLoading ? ' · 正在扫描…' : '') + '</span></div>';
+    html += '<div ' + 'class="' + 'section-label' + '"' + '>' + t('本机仓库') + '<span>' + localShown.length + (localLoading ? t(' · 正在扫描…') : '') + '</span></div>';
     if (localError) html += '<div class="notice error">' + escapeHtml(localError) + '</div>';
     for (const f of localData?.failures || []) html += '<div class="notice error">' + escapeHtml(f.root + '：' + f.message) + '</div>';
-    if (!localShown.length) html += '<p class="empty">' + (tokens.length ? '没有匹配的本机仓库。' : '还没有本机仓库记录。可以打开文件夹，或扫描存放项目的文件夹。') + '</p>';
+    if (!localShown.length) html += '<p class="empty">' + (tokens.length ? t('没有匹配的本机仓库。') : t('还没有本机仓库记录。可以打开文件夹，或扫描存放项目的文件夹。')) + '</p>';
     for (const l of localShown.slice(0, RENDER_LIMIT)) {
-      html += '<div class="repo-row' + (l.dir === dir ? ' current' : '') + '"><button class="repo-main" data-open-dir="' + escapeHtml(l.dir) + '" title="打开 ' + escapeHtml(l.dir) + '"><span class="repo-name"><b>' + escapeHtml(baseName(l.dir)) + '</b>' + (l.dir === dir ? badge('当前', 'good') : '') + (l.cloud?.private ? badge('私有') : '') + '</span><span class="repo-line">' + escapeHtml(l.dir) + '</span>' + (l.remote ? '<span class="repo-line faint">' + icon('cloud') + escapeHtml(l.cloud?.fullName || l.remote) + '</span>' : '') + '</button></div>';
+      html += '<div class="repo-row' + (l.dir === dir ? ' current' : '') + '"><button class="repo-main" data-open-dir="' + escapeHtml(l.dir) + '" ' + 'title="' + t('打开 ') + escapeHtml(l.dir) + '"><span class="repo-name"><b>' + escapeHtml(baseName(l.dir)) + '</b>' + (l.dir === dir ? badge(t('当前'), 'good') : '') + (l.cloud?.private ? badge(t('私有')) : '') + '</span><span class="repo-line">' + escapeHtml(l.dir) + '</span>' + (l.remote ? '<span class="repo-line faint">' + icon('cloud') + escapeHtml(l.cloud?.fullName || l.remote) + '</span>' : '') + '</button></div>';
     }
-    if (localShown.length > RENDER_LIMIT) html += '<p class="empty">还有 ' + (localShown.length - RENDER_LIMIT) + ' 个，继续输入以缩小范围。</p>';
+    if (localShown.length > RENDER_LIMIT) html += '<p ' + 'class="' + 'empty' + '"' + '>' + t('还有 ') + (localShown.length - RENDER_LIMIT) + t(' 个，继续输入以缩小范围。') + '</p>';
   }
   if (repoScope !== 'local') {
     const logins = cloudLogins(), loading = logins.some(l => cloudLoading.has(l));
-    html += '<div class="section-label">云端仓库' + (repoScope === 'all' ? '（未在本机）' : '') + '<span>' + cloudShown.length + (loading ? ' · 读取中…' : '') + '</span></div>';
+    html += '<div ' + 'class="' + 'section-label' + '"' + '>' + t('云端仓库') + (repoScope === 'all' ? t('（未在本机）') : '') + '<span>' + cloudShown.length + (loading ? t(' · 读取中…') : '') + '</span></div>';
     for (const login of logins) if (cloudErrors.has(login)) html += '<div class="notice error">' + escapeHtml(login + '：' + cloudErrors.get(login)) + '</div>';
-    if (!logins.length) html += '<p class="empty">' + (accounts ? '还没有登录 GitHub 账号。<br><button class="text-button" data-repo-action="accounts">添加账号</button>' : accountsError ? escapeHtml(accountsError) : '正在读取 GitHub 账号…') + '</p>';
-    else if (!cloudShown.length && !loading) html += '<p class="empty">' + (tokens.length ? '没有匹配的云端仓库。' : '这个账号的云端仓库都已在本机。') + '</p>';
+    if (!logins.length) html += '<p class="empty">' + (accounts ? t('还没有登录 GitHub 账号。') + '<br>' + '<button ' + 'class="' + 'text-button' + '"' + ' ' + 'data-repo-action="' + 'accounts' + '"' + '>' + t('添加账号') + '</button>' : accountsError ? escapeHtml(accountsError) : t('正在读取 GitHub 账号…')) + '</p>';
+    else if (!cloudShown.length && !loading) html += '<p class="empty">' + (tokens.length ? t('没有匹配的云端仓库。') : t('这个账号的云端仓库都已在本机。')) + '</p>';
     for (const c of cloudShown.slice(0, RENDER_LIMIT)) {
       const cloning = cloneState?.fullName === c.fullName;
-      const progress = cloning ? ({ connecting: '连接中', waiting: '克隆中', counting: '检查记录', compressing: '远端准备', receiving: '下载', resolving: '整理记录' }[cloneState.phase] || '克隆中') + (Number.isFinite(cloneState.percent) ? ' ' + cloneState.percent + '%' : '…') : '';
-      const meta = [c.pushedAt ? '更新于 ' + age(c.pushedAt) : '', cloudLogin === '*' ? '账号 ' + c.logins.join('、') : ''].filter(Boolean).join(' · ');
-      html += '<div class="repo-row"><button class="repo-main" ' + (c.local ? 'data-open-dir="' + escapeHtml(c.local.dir) + '" title="打开本机克隆 ' + escapeHtml(c.local.dir) + '"' : 'data-clone="' + escapeHtml(c.fullName) + '" title="克隆到本机后打开"') + (cloneState ? ' disabled' : '') + '><span class="repo-name"><b>' + escapeHtml(c.name) + '</b><span class="muted">' + escapeHtml(c.owner) + '</span>' + (c.private ? badge('私有') : '') + (c.fork ? badge('派生') : '') + (c.archived ? badge('已归档', 'warn') : '') + '</span>' + (c.description ? '<span class="repo-line">' + escapeHtml(c.description) + '</span>' : '') + '<span class="repo-line faint">' + (c.local ? '本机：' + escapeHtml(c.local.dir) : escapeHtml(meta)) + '</span></button><span class="repo-action">' + (cloning ? '<span class="cloning" role="status">' + escapeHtml(progress) + '</span>' : c.local ? '<span class="muted">已在本机</span>' : '<button class="text-button" data-clone="' + escapeHtml(c.fullName) + '"' + (cloneState ? ' disabled' : '') + '>克隆</button>') + '</span></div>';
+      const progress = cloning ? ({ connecting: t('连接中'), waiting: t('克隆中'), counting: t('检查记录'), compressing: t('远端准备'), receiving: t('下载'), resolving: t('整理记录') }[cloneState.phase] || t('克隆中')) + (Number.isFinite(cloneState.percent) ? ' ' + cloneState.percent + '%' : '…') : '';
+      const meta = [c.pushedAt ? t('更新于 ') + age(c.pushedAt) : '', cloudLogin === '*' ? t('账号 ') + c.logins.join('、') : ''].filter(Boolean).join(' · ');
+      html += '<div class="repo-row"><button class="repo-main" ' + (c.local ? 'data-open-dir="' + escapeHtml(c.local.dir) + '" ' + 'title="' + t('打开本机克隆 ') + escapeHtml(c.local.dir) + '"' : 'data-clone="' + escapeHtml(c.fullName) + '" ' + 'title="' + t('克隆到本机后打开') + '"') + (cloneState ? ' disabled' : '') + '><span class="repo-name"><b>' + escapeHtml(c.name) + '</b><span class="muted">' + escapeHtml(c.owner) + '</span>' + (c.private ? badge(t('私有')) : '') + (c.fork ? badge(t('派生')) : '') + (c.archived ? badge(t('已归档'), 'warn') : '') + '</span>' + (c.description ? '<span class="repo-line">' + escapeHtml(c.description) + '</span>' : '') + '<span class="repo-line faint">' + (c.local ? t('本机：') + escapeHtml(c.local.dir) : escapeHtml(meta)) + '</span></button><span class="repo-action">' + (cloning ? '<span class="cloning" role="status">' + escapeHtml(progress) + '</span>' : c.local ? '<span ' + 'class="' + 'muted' + '"' + '>' + t('已在本机') + '</span>' : '<button class="text-button" data-clone="' + escapeHtml(c.fullName) + '"' + (cloneState ? ' disabled' : '') + '>' + t('克隆') + '</button>') + '</span></div>';
     }
-    if (cloudShown.length > RENDER_LIMIT) html += '<p class="empty">还有 ' + (cloudShown.length - RENDER_LIMIT) + ' 个，继续输入以缩小范围。</p>';
+    if (cloudShown.length > RENDER_LIMIT) html += '<p ' + 'class="' + 'empty' + '"' + '>' + t('还有 ') + (cloudShown.length - RENDER_LIMIT) + t(' 个，继续输入以缩小范围。') + '</p>';
   }
   const roots = localData?.roots || [];
-  if (repoScope !== 'cloud' && roots.length) html += '<div class="scan-roots"><span>已扫描：</span>' + roots.map(r => '<span class="scan-root" title="' + escapeHtml(r) + '">' + escapeHtml(r) + '<button class="icon-button" data-remove-root="' + escapeHtml(r) + '" title="不再扫描这个文件夹" aria-label="不再扫描 ' + escapeHtml(r) + '">' + icon('close') + '</button></span>').join('') + '</div>';
+  if (repoScope !== 'cloud' && roots.length) html += '<div ' + 'class="' + 'scan-roots' + '"' + '>' + '<span>' + t('已扫描：') + '</span>' + roots.map(r => '<span class="scan-root" title="' + escapeHtml(r) + '">' + escapeHtml(r) + '<button class="icon-button" data-remove-root="' + escapeHtml(r) + '" ' + 'title="' + t('不再扫描这个文件夹') + '"' + ' ' + 'aria-label="' + t('不再扫描 ') + escapeHtml(r) + '">' + icon('close') + '</button></span>').join('') + '</div>';
   const list = $('#repo-list'), top = list.scrollTop;
   list.innerHTML = html; list.scrollTop = top;
-  $('#repo-dialog-count').textContent = (localShown.length + cloudShown.length) + ' 个';
+  $('#repo-dialog-count').textContent = (localShown.length + cloudShown.length) + t(' 个');
   $('#repo-scan').disabled = localLoading;
 }
 function repoError(message) { $('#repo-dialog-error').textContent = message || ''; $('#repo-dialog-error').hidden = !message; }

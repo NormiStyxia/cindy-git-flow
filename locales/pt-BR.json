@@ -1,0 +1,114 @@
+{
+  "name": "Git Flow",
+  "description": "Veja repositórios locais, grafos de branches em fluxo, os últimos commits e o status dos colegas ao lado da conversa; gerencie contas do GitHub e clone repositórios na nuvem.",
+  "whenToUse": "Veja o repositório local, o grafo de branches em fluxo, os últimos commits e o status dos colegas à esquerda da conversa; veja ou troque a conta local do GitHub e liste os repositórios na nuvem.",
+  "panel": {
+    "title": "Git Flow"
+  },
+  "tools": {
+    "git_open": {
+      "description": "Conecta um repositório Git local e o mostra no painel Git Flow à esquerda, retornando os branches reais, o grafo de commits e o status da árvore de trabalho.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Caminho absoluto para um repositório local; omita para usar o diretório de trabalho da sessão atual."
+        }
+      }
+    },
+    "git_status": {
+      "description": "Visão somente leitura de um repositório Git local: os últimos 180 commits, branches locais e remotos em cache, e as árvores de trabalho neste computador. Um remoto em cache não prova que ele esteja online.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Caminho absoluto para um repositório local; omita para usar o diretório de trabalho da sessão atual."
+        }
+      }
+    },
+    "git_commit": {
+      "description": "Mostra os detalhes e o patch de um commit.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Caminho absoluto para um repositório local; omita para usar o diretório de trabalho da sessão atual."
+        },
+        "/properties/ref": {
+          "description": "Hash do commit ou referência de branch."
+        }
+      }
+    },
+    "git_compare": {
+      "description": "Pré-visualiza a diferença de commits, a possibilidade de avanço direto e as diferenças de arquivos entre o HEAD e um branch de destino; não troca de branch, não mescla e não prevê conflitos.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Caminho absoluto para um repositório local; omita para usar o diretório de trabalho da sessão atual."
+        },
+        "/properties/target": {
+          "description": "Branch de destino, referência remota ou hash do commit."
+        }
+      }
+    },
+    "git_fetch": {
+      "description": "Busca as referências mais recentes de um remoto já existente; não mescla, não altera arquivos de trabalho e não remove referências obsoletas.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Caminho absoluto para um repositório local; omita para usar o diretório de trabalho da sessão atual."
+        },
+        "/properties/remote": {
+          "description": "Nome de um remoto já existente, por exemplo origin."
+        }
+      }
+    },
+    "git_team": {
+      "description": "Sincroniza o status dos colegas para o repositório atual; exige um serviço de equipe conectado nas configurações e o compartilhamento ativado nesse repositório. Reporta apenas apelido, branch, assunto do commit e contagens de mudanças.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Caminho absoluto para um repositório local; omita para usar o diretório de trabalho da sessão atual."
+        }
+      }
+    },
+    "git_accounts": {
+      "description": "Lista somente leitura das contas conectadas ao GitHub CLI neste computador, da conta ativa, da configuração global de credenciais HTTPS do github.com e do autor de commit global. Não retorna tokens e não confirma com qual conta o repositório atual envia."
+    },
+    "git_account_switch": {
+      "description": "Troca a conta ativa do GitHub CLI para outra conta conectada. O gitPush no resultado descreve apenas a configuração global de credenciais HTTPS; ele não confirma com qual conta o repositório atual envia, porque SSH, configurações no nível do repositório e variáveis de ambiente podem fazer os envios usarem outra conta.",
+      "parameters": {
+        "/properties/login": {
+          "description": "Um nome de usuário do GitHub conectado."
+        }
+      }
+    },
+    "git_cloud_repos": {
+      "description": "Lista os repositórios na nuvem que uma conta conectada do GitHub pode acessar (próprios, como colaborador e de organizações), filtráveis por palavra-chave, até 100. Somente leitura; não clona.",
+      "parameters": {
+        "/properties/login": {
+          "description": "Um nome de usuário do GitHub conectado; omita para a conta atual."
+        },
+        "/properties/query": {
+          "description": "Palavra-chave comparada com o nome completo ou a descrição de um repositório."
+        },
+        "/properties/refresh": {
+          "description": "Ignorar o cache de 10 minutos e ler de novo."
+        }
+      }
+    },
+    "git_usage": {
+      "description": "Lê o uso do modelo que o Git Flow registra em segundo plano: chamadas de tradução do plugin, caracteres e tokens estimados, além dos tokens reais de cada turno da conversa fornecidos pelo host. Não aparece no painel."
+    },
+    "git_translate": {
+      "description": "Traduz assuntos de commits para chinês simplificado e os guarda em cache; trata apenas os assuntos fornecidos, não lê código e nunca modifica registros do Git. Usa o modelo de tarefas leves do Cindy.",
+      "parameters": {
+        "/properties/subjects": {
+          "description": "Assuntos de commit brutos, no máximo 16.000 caracteres no total."
+        },
+        "/properties/retry": {
+          "description": "Tentar de novo uma tradução que falhou depois de tratar a causa."
+        }
+      }
+    }
+  },
+  "node": {
+    "secretBindings": {
+      "team_token": {
+        "label": "Token de acesso da equipe",
+        "hint": "Fornecido pelo administrador do serviço Git Flow da equipe; usado apenas para sincronizar o status dos colegas."
+      }
+    }
+  }
+}

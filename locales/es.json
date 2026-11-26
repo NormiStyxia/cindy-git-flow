@@ -1,0 +1,114 @@
+{
+  "name": "Git Flow",
+  "description": "Consulta junto a la conversación los repositorios locales, los grafos de ramas en flujo, los últimos commits y el estado de tus compañeros; gestiona cuentas de GitHub y clona repositorios en la nube.",
+  "whenToUse": "Consulta a la izquierda de la conversación el repositorio local, el grafo de ramas en flujo, los últimos commits y el estado de tus compañeros; ve o cambia la cuenta de GitHub local y lista los repositorios en la nube.",
+  "panel": {
+    "title": "Git Flow"
+  },
+  "tools": {
+    "git_open": {
+      "description": "Conecta un repositorio Git local y lo muestra en el panel Git Flow de la izquierda, devolviendo las ramas reales, el grafo de commits y el estado del árbol de trabajo.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Ruta absoluta a un repositorio local; omítela para usar el directorio de trabajo de la sesión actual."
+        }
+      }
+    },
+    "git_status": {
+      "description": "Vista de solo lectura de un repositorio Git local: los últimos 180 commits, las ramas locales y remotas en caché y los árboles de trabajo de este equipo. Un remoto en caché no demuestra que esté en línea.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Ruta absoluta a un repositorio local; omítela para usar el directorio de trabajo de la sesión actual."
+        }
+      }
+    },
+    "git_commit": {
+      "description": "Muestra los detalles y el parche de un commit.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Ruta absoluta a un repositorio local; omítela para usar el directorio de trabajo de la sesión actual."
+        },
+        "/properties/ref": {
+          "description": "Hash del commit o referencia de rama."
+        }
+      }
+    },
+    "git_compare": {
+      "description": "Previsualiza la distancia entre commits, la relación de avance rápido y las diferencias de archivos entre HEAD y una rama destino; no cambia de rama, no fusiona y no predice conflictos.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Ruta absoluta a un repositorio local; omítela para usar el directorio de trabajo de la sesión actual."
+        },
+        "/properties/target": {
+          "description": "Rama destino, referencia remota o hash de commit."
+        }
+      }
+    },
+    "git_fetch": {
+      "description": "Obtiene las últimas referencias de un remoto existente; no fusiona, no cambia los archivos de trabajo ni poda.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Ruta absoluta a un repositorio local; omítela para usar el directorio de trabajo de la sesión actual."
+        },
+        "/properties/remote": {
+          "description": "Nombre de un remoto existente, por ejemplo origin."
+        }
+      }
+    },
+    "git_team": {
+      "description": "Sincroniza el estado de tus compañeros para el repositorio actual; requiere un servicio de equipo conectado en los ajustes y la compartición activada para ese repositorio. Solo informa del nombre visible, la rama, el asunto del commit y el número de cambios.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Ruta absoluta a un repositorio local; omítela para usar el directorio de trabajo de la sesión actual."
+        }
+      }
+    },
+    "git_accounts": {
+      "description": "Lista de solo lectura de las cuentas conectadas a GitHub CLI en este equipo, la cuenta activa, la configuración global de credenciales HTTPS para github.com y el autor global de commits. No devuelve tokens ni confirma con qué cuenta envía el repositorio actual."
+    },
+    "git_account_switch": {
+      "description": "Cambia la cuenta activa de GitHub CLI a otra cuenta conectada. gitPush en el resultado solo describe la configuración global de credenciales HTTPS; no confirma con qué cuenta envía el repositorio actual, porque SSH, la configuración del repositorio y las variables de entorno pueden hacer que los envíos usen otra cuenta.",
+      "parameters": {
+        "/properties/login": {
+          "description": "Nombre de usuario de GitHub con sesión iniciada."
+        }
+      }
+    },
+    "git_cloud_repos": {
+      "description": "Lista los repositorios en la nube a los que puede acceder una cuenta de GitHub conectada (propios, como colaborador y de organización), filtrable por palabra clave, hasta 100. Solo lectura; no clona.",
+      "parameters": {
+        "/properties/login": {
+          "description": "Nombre de usuario de GitHub con sesión iniciada; omítelo para la cuenta actual."
+        },
+        "/properties/query": {
+          "description": "Palabra clave que se compara con el nombre completo o la descripción de un repositorio."
+        },
+        "/properties/refresh": {
+          "description": "Ignora la caché de 10 minutos y vuelve a leer."
+        }
+      }
+    },
+    "git_usage": {
+      "description": "Lee el uso del modelo que Git Flow registra en segundo plano: llamadas de traducción del plugin, caracteres y tokens estimados, además de los tokens reales por turno de conversación que proporciona el host. No se muestra en el panel."
+    },
+    "git_translate": {
+      "description": "Traduce los asuntos de los commits al chino simplificado y los guarda en caché; solo procesa los asuntos recibidos, no lee código y nunca modifica los registros de Git. Usa el modelo ligero de tareas de Cindy.",
+      "parameters": {
+        "/properties/subjects": {
+          "description": "Asuntos de commit sin procesar, como máximo 16.000 caracteres en total."
+        },
+        "/properties/retry": {
+          "description": "Reintenta tras resolver la causa de una traducción fallida."
+        }
+      }
+    }
+  },
+  "node": {
+    "secretBindings": {
+      "team_token": {
+        "label": "Token de acceso del equipo",
+        "hint": "Lo proporciona el administrador del servicio Git Flow del equipo; solo se usa para sincronizar el estado de tus compañeros."
+      }
+    }
+  }
+}

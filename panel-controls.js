@@ -1,4 +1,12 @@
 'use strict';
+// Interface strings come from the host language, never a plugin preference.
+// A function declaration (not a const) keeps every panel script loadable on its
+// own: the classic scripts share one global scope, so two const bindings of the
+// same name would abort the second script.
+function t(key, vars) {
+  const i18n = typeof window !== 'undefined' ? window.GitI18n : null;
+  return i18n ? i18n.t(key, vars) : key;
+}
 // 统一的主题菜单：保留按钮的 value/change 接口，不使用原生 select。
 window.GitChoices = (() => {
   const menu = document.querySelector('#choice-menu'), choices = new Map();
@@ -14,7 +22,7 @@ window.GitChoices = (() => {
     choices.set(button, items);
     button.value = nextValue;
     const current = items.find(item => item.value === button.value);
-    const label = document.createElement('span'); label.textContent = current?.label || button.dataset.empty || '暂无选项';
+    const label = document.createElement('span'); label.textContent = current?.label || button.dataset.empty || t('暂无选项');
     const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     arrow.setAttribute('aria-hidden', 'true'); arrow.innerHTML = '<use href="#i-chevron"/>';
     button.replaceChildren(label, arrow); if (!button.dataset.dialog) button.setAttribute('aria-controls', 'choice-menu');
@@ -26,7 +34,7 @@ window.GitChoices = (() => {
     const items = choices.get(button) || []; if (!items.length) return;
     button.dispatchEvent(new CustomEvent('choice-opening', { bubbles: true }));
     close(); origin = button; button.setAttribute('aria-expanded', 'true');
-    menu.setAttribute('aria-label', button.getAttribute('aria-label') || '选择');
+    menu.setAttribute('aria-label', button.getAttribute('aria-label') || t('选择'));
     menu.replaceChildren(...items.map(item => {
       const option = document.createElement('button'); option.type = 'button'; option.setAttribute('role', 'option');
       option.setAttribute('aria-selected', String(item.value === button.value)); option.dataset.value = item.value;

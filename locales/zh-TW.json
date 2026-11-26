@@ -1,0 +1,114 @@
+{
+  "name": "Git Flow",
+  "description": "在對話左側查看本地倉庫、流動分支圖、最新提交和隊友狀態；管理 GitHub 帳號並克隆雲端倉庫。",
+  "whenToUse": "在對話左側查看本地倉庫、流動分支圖、最新提交和隊友狀態；查看或切換本機 GitHub 帳號，列出雲端倉庫。",
+  "panel": {
+    "title": "Git Flow"
+  },
+  "tools": {
+    "git_open": {
+      "description": "連接本機 Git 倉庫並讓左側 Git Flow 面板顯示它，回傳真實分支、提交圖和工作區狀態。",
+      "parameters": {
+        "/properties/dir": {
+          "description": "本機倉庫的絕對路徑；省略時使用目前工作階段的工作目錄。"
+        }
+      }
+    },
+    "git_status": {
+      "description": "唯讀檢視本機 Git 倉庫：最近 180 筆提交、本地與快取的遠端分支，以及本機上的工作區。快取的遠端記錄不代表它仍在線上。",
+      "parameters": {
+        "/properties/dir": {
+          "description": "本機倉庫的絕對路徑；省略時使用目前工作階段的工作目錄。"
+        }
+      }
+    },
+    "git_commit": {
+      "description": "顯示單筆提交的詳情和補丁。",
+      "parameters": {
+        "/properties/dir": {
+          "description": "本機倉庫的絕對路徑；省略時使用目前工作階段的工作目錄。"
+        },
+        "/properties/ref": {
+          "description": "提交雜湊或分支參照。"
+        }
+      }
+    },
+    "git_compare": {
+      "description": "預覽 HEAD 與目標分支之間的提交差距、快轉關係和檔案差異；不會切換分支、合併或預測衝突。",
+      "parameters": {
+        "/properties/dir": {
+          "description": "本機倉庫的絕對路徑；省略時使用目前工作階段的工作目錄。"
+        },
+        "/properties/target": {
+          "description": "目標分支、遠端參照或提交雜湊。"
+        }
+      }
+    },
+    "git_fetch": {
+      "description": "從既有遠端取得最新參照；不合併、不變更工作檔案，也不清理。",
+      "parameters": {
+        "/properties/dir": {
+          "description": "本機倉庫的絕對路徑；省略時使用目前工作階段的工作目錄。"
+        },
+        "/properties/remote": {
+          "description": "既有的遠端名稱，例如 origin。"
+        }
+      }
+    },
+    "git_team": {
+      "description": "同步目前倉庫的隊友狀態；需要在設定中連接團隊服務並為該倉庫開啟共享。只回報暱稱、分支、提交摘要和改動數量。",
+      "parameters": {
+        "/properties/dir": {
+          "description": "本機倉庫的絕對路徑；省略時使用目前工作階段的工作目錄。"
+        }
+      }
+    },
+    "git_accounts": {
+      "description": "唯讀列出本機上登入 GitHub CLI 的帳號、目前帳號、github.com 的全域 HTTPS 憑證設定和全域提交作者。不回傳權杖，也不確認目前倉庫推送時使用哪個帳號。"
+    },
+    "git_account_switch": {
+      "description": "將目前 GitHub CLI 帳號切換到另一個已登入的帳號。結果中的 gitPush 只描述全域 HTTPS 憑證設定；並不確認目前倉庫推送時使用哪個帳號，因為 SSH、倉庫層級設定和環境變數都可能讓推送改用其他帳號。",
+      "parameters": {
+        "/properties/login": {
+          "description": "已登入的 GitHub 使用者名稱。"
+        }
+      }
+    },
+    "git_cloud_repos": {
+      "description": "列出已登入 GitHub 帳號可存取的雲端倉庫（擁有、協作者與組織），可用關鍵字篩選，最多 100 個。唯讀；不會克隆。",
+      "parameters": {
+        "/properties/login": {
+          "description": "已登入的 GitHub 使用者名稱；省略時使用目前帳號。"
+        },
+        "/properties/query": {
+          "description": "用於比對倉庫全名或描述的關鍵字。"
+        },
+        "/properties/refresh": {
+          "description": "忽略 10 分鐘快取並重新讀取。"
+        }
+      }
+    },
+    "git_usage": {
+      "description": "讀取 Git Flow 在背景記錄的模型用量：外掛翻譯呼叫、字元與預估權杖，以及主機提供的真實對話回合權杖。面板中不顯示。"
+    },
+    "git_translate": {
+      "description": "將提交標題翻譯為簡體中文並快取；只處理提供的標題，不讀取程式碼，也絕不修改 Git 記錄。使用 Cindy 的輕量任務模型。",
+      "parameters": {
+        "/properties/subjects": {
+          "description": "原始提交標題，合計最多 16,000 個字元。"
+        },
+        "/properties/retry": {
+          "description": "在失敗原因處理後重試翻譯。"
+        }
+      }
+    }
+  },
+  "node": {
+    "secretBindings": {
+      "team_token": {
+        "label": "團隊存取權杖",
+        "hint": "由團隊 Git Flow 服務管理員提供；僅用於隊友狀態同步。"
+      }
+    }
+  }
+}

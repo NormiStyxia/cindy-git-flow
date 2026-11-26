@@ -5,6 +5,18 @@
   "name": "Git 流线",
   "description": "在对话左侧查看本地仓库、流动分支图、最新提交和队友状态；管理 GitHub 账号，搜索并克隆云端仓库",
   "whenToUse": "在对话左侧查看本地仓库、流动分支图、最新提交和队友状态；查看或切换本机 GitHub 账号，列出云端仓库",
+  "locales": {
+    "zh-CN": "locales/zh-CN.json",
+    "zh-TW": "locales/zh-TW.json",
+    "en": "locales/en.json",
+    "ja": "locales/ja.json",
+    "ko": "locales/ko.json",
+    "es": "locales/es.json",
+    "fr": "locales/fr.json",
+    "de": "locales/de.json",
+    "pt-PT": "locales/pt-PT.json",
+    "pt-BR": "locales/pt-BR.json"
+  },
   "version": "1.9.3",
   "releaseNotes": "新增把提交拖进对话输入框、或点「复制提交引用」的能力：引用绑定来源工作树路径和完整 SHA，拖到别的仓库对话也不会混；折叠的同步组可展开后选单条。对话没有关联本机目录、或目录不在 Git 仓库时，面板底部和输入框上方会给出提示。「全仓库」流线不再把 Cindy 每轮对话写入的会话保存点算进最近 180 条；分支、标签或 HEAD 仍能引用到的提交照常显示。修复 Windows 上本地工作区功能失效：Git 在 Windows 返回正斜杠路径，旧的越界校验把它当成仓库外文件，导致未跟踪文件行数恒为 0、点击文件看差异直接报错、模型摘要漏掉未跟踪内容；现在改为路径归一化加严格后代判断。新增本地状态流线：流线顶部用一条可收起的虚线串起工作区改动、已暂存/未暂存/未跟踪阶段和本地备份，收起后只看仓库提交历史；各阶段显示文件数、行数和文件名预览。工作区详情改为三层：模块级中文摘要、本地状态流线、按文件展开的内联代码差异，自动过滤 Git 头信息与 @@ 标记。新增可选模型摘要：只有点「生成详细摘要」才把本次未提交改动发给轻量任务模型，结果只存在面板内存里，不创建提交，改动后标记为已过期；同时优化发送内容，避免长 diff 压垮模型。流线新增待推送提交高亮、「加载更早的提交」和当前分支上游数量。本地备份收成一行入口，展开显示净化后的中文标题（升级自动备份、临时备份、工作区备份），不再直接暴露 Git 原始描述。翻译更稳：兼容 Markdown 围栏和多种返回结构，单条不合规不再拖废整批，失败后不再反复请求；Merge pull request 与分支合入标题改为本地中文化，减少模型调用。自动同步折叠新增 taptap-maker 构建唤醒提交（chore: wake maker build server / chore(build) 变体），并保留 TapCode Rollback 快照识别。新增「显示提交原文」开关，可随时切回原始标题并暂停新翻译。",
   "entry": "main.js",
@@ -226,7 +238,12 @@
   "mcpApps": {
     "host": {
       "contributions": [
-        { "id": "repository-warning", "title": "Git 仓库提示", "kind": "status", "position": "composer.header" }
+        {
+          "id": "repository-warning",
+          "title": "Git 仓库提示",
+          "kind": "status",
+          "position": "composer.header"
+        }
       ]
     }
   },

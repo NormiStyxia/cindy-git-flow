@@ -1,0 +1,114 @@
+{
+  "name": "Git Flow",
+  "description": "Voyez vos dépôts locaux, les graphes de branches animés, les derniers commits et l'état de vos coéquipiers à côté de la conversation ; gérez les comptes GitHub et clonez des dépôts cloud.",
+  "whenToUse": "Consultez le dépôt local, le graphe de branches animé, les derniers commits et l'état des coéquipiers à gauche de la conversation ; affichez ou changez le compte GitHub local et listez les dépôts cloud.",
+  "panel": {
+    "title": "Git Flow"
+  },
+  "tools": {
+    "git_open": {
+      "description": "Connecte un dépôt Git local et l'affiche dans le panneau Git Flow à gauche, en renvoyant les vraies branches, le graphe des commits et l'état de l'arbre de travail.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Chemin absolu vers un dépôt local ; omettez-le pour utiliser le répertoire de travail de la session en cours."
+        }
+      }
+    },
+    "git_status": {
+      "description": "Vue en lecture seule d'un dépôt Git local : les 180 derniers commits, les branches locales et distantes en cache, et les arbres de travail de cet ordinateur. Un distant en cache ne prouve pas qu'il est en ligne.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Chemin absolu vers un dépôt local ; omettez-le pour utiliser le répertoire de travail de la session en cours."
+        }
+      }
+    },
+    "git_commit": {
+      "description": "Affiche les détails d'un commit et son correctif.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Chemin absolu vers un dépôt local ; omettez-le pour utiliser le répertoire de travail de la session en cours."
+        },
+        "/properties/ref": {
+          "description": "Empreinte de commit ou référence de branche."
+        }
+      }
+    },
+    "git_compare": {
+      "description": "Prévisualise l'écart de commits, la relation d'avance rapide et les différences de fichiers entre HEAD et une branche cible ; ne change pas de branche, ne fusionne pas et ne prévoit pas les conflits.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Chemin absolu vers un dépôt local ; omettez-le pour utiliser le répertoire de travail de la session en cours."
+        },
+        "/properties/target": {
+          "description": "Branche cible, référence distante ou empreinte de commit."
+        }
+      }
+    },
+    "git_fetch": {
+      "description": "Récupère les dernières références depuis un distant existant ; ne fusionne rien, ne modifie pas les fichiers de travail et n'élague rien.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Chemin absolu vers un dépôt local ; omettez-le pour utiliser le répertoire de travail de la session en cours."
+        },
+        "/properties/remote": {
+          "description": "Un nom de distant existant, par exemple origin."
+        }
+      }
+    },
+    "git_team": {
+      "description": "Synchronise l'état des coéquipiers pour le dépôt actuel ; nécessite un service d'équipe connecté dans les réglages et le partage activé pour ce dépôt. Seuls le pseudonyme, la branche, le sujet du commit et le nombre de modifications sont signalés.",
+      "parameters": {
+        "/properties/dir": {
+          "description": "Chemin absolu vers un dépôt local ; omettez-le pour utiliser le répertoire de travail de la session en cours."
+        }
+      }
+    },
+    "git_accounts": {
+      "description": "Liste en lecture seule des comptes connectés à GitHub CLI sur cet ordinateur, du compte actif, de la configuration globale des identifiants HTTPS pour github.com et de l'auteur des commits global. Ne renvoie aucun jeton et ne confirme pas avec quel compte le dépôt actuel pousse."
+    },
+    "git_account_switch": {
+      "description": "Bascule le compte actif de GitHub CLI vers un autre compte connecté. Le champ gitPush du résultat ne décrit que la configuration globale des identifiants HTTPS ; il ne confirme pas avec quel compte le dépôt actuel pousse, car SSH, la configuration propre au dépôt et les variables d'environnement peuvent faire pousser avec un autre compte.",
+      "parameters": {
+        "/properties/login": {
+          "description": "Un nom d'utilisateur GitHub connecté."
+        }
+      }
+    },
+    "git_cloud_repos": {
+      "description": "Liste les dépôts cloud auxquels un compte GitHub connecté a accès (propres, en collaboration et d'organisation), filtrables par mot-clé, jusqu'à 100. Lecture seule ; ne clone pas.",
+      "parameters": {
+        "/properties/login": {
+          "description": "Un nom d'utilisateur GitHub connecté ; omettez-le pour le compte actuel."
+        },
+        "/properties/query": {
+          "description": "Mot-clé comparé au nom complet ou à la description d'un dépôt."
+        },
+        "/properties/refresh": {
+          "description": "Ignore le cache de 10 minutes et relit les données."
+        }
+      }
+    },
+    "git_usage": {
+      "description": "Lit l'usage du modèle que Git Flow enregistre en arrière-plan : appels de traduction de l'extension, caractères et jetons estimés, ainsi que les jetons réels des tours de conversation fournis par l'hôte. Non affiché dans le panneau."
+    },
+    "git_translate": {
+      "description": "Traduit les sujets de commit en chinois simplifié et les met en cache ; ne traite que les sujets fournis, ne lit aucun code et ne modifie jamais les enregistrements Git. Utilise le modèle de tâche léger de Cindy.",
+      "parameters": {
+        "/properties/subjects": {
+          "description": "Sujets de commit bruts, 16 000 caractères au total au maximum."
+        },
+        "/properties/retry": {
+          "description": "Réessaie après une traduction échouée, une fois la cause traitée."
+        }
+      }
+    }
+  },
+  "node": {
+    "secretBindings": {
+      "team_token": {
+        "label": "Jeton d'accès d'équipe",
+        "hint": "Fourni par l'administrateur du service Git Flow de l'équipe ; utilisé uniquement pour la synchronisation de l'état des coéquipiers."
+      }
+    }
+  }
+}

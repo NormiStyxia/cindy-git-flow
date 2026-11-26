@@ -199,3 +199,10 @@ Chrome 测试通过测试用宿主桥运行实际 main.js、bridge.js、panel.js
 - Chrome headless + 实际 main/bridge/panel 驱动真实 Git 夹具（8 条提交含两组 Maker 快照、分支指向快照）：16 项检查通过，含 5 行/折叠 2 组、时间段、分支标签落位、快照清单与真实补丁、开关写盘并重载生效、分支页说明、搜索命中、320px 无横向溢出、深色主题截图。
 - 回归：真实 gamejam 仓库（无 Maker 快照）9 项检查通过，全部提交照常显示、无折叠行、无误判、点提交仍能看改动、定位与分支页正常。
 - 脚本：.dev/auto-sync-ui.cjs、.dev/auto-sync-regression.cjs。本轮仅源码、验证与打包，真实安装态与宿主更新待导入新包后验证。
+
+## 界面多语言（community PR）
+
+- 界面词条改为按宿主 `uiLocale` 解析，支持 Cindy 的十种显示语言；回退链为 繁體→简体→English，其他语言→English。词条表在 `locales/ui/`，清单文字在 `locales/`，`ghost.json` 的 `locales` 已登记十种语言。
+- `node --test tests/`：159 项，158 通过、1 跳过（Windows 下未跑的既有用例）；新增 `tests/locales.test.cjs` 校验词条键集一致、非中日韩词条不含汉字、首尾空格与 `$1`／箭头字形保留、清单语言文件指针一致、`panel.html` 的脚本不重复声明同名 `const`。
+- `tests/i18n.test.cjs`：按宿主语言加载词条、区域与文言变体归并、词条缺失回退、`/app-context` 读取、`{name}` 变量替换。
+- 未在真实 Cindy 里逐语言截图核对；浏览器端只做了脚本级与静态校验，语言切换后的重绘由 `host-context-changed` 触发。
